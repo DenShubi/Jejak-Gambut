@@ -78,7 +78,8 @@ class Parameter:
     ukuran_filter: int = 5            # jendela speckle, piksel
     # --- CV: SLIC + Multi-Otsu
     n_superpixel: int = 3500          # minimum jumlah superpixel di dalam KHG
-    luas_superpixel_maks_ha: float = 50.0   # kalau KHG luas, tambah superpixel supaya rerata <= ini
+    luas_superpixel_maks_ha: float = 10.0   # kalau KHG luas, tambah superpixel supaya rerata <= ini
+    deteksi_multitemporal: bool = True # dHV = penurunan TERDALAM di semua lintasan pra<t<=pasca (tangkap luka yg lalu pulih)
     kekompakan_slic: float = 0.3      # kecil = ikut batas radiometrik, besar = lebih kotak
     ambang_hv_db: float | None = None # None = otomatis Multi-Otsu. Isi angka untuk override manual
     ambang_hv_maks_db: float = -1.8   # ambang adaptif tidak boleh lebih longgar dari ini
@@ -123,8 +124,8 @@ def baca_ke_grid(path: str, grid: dict) -> np.ndarray:
     Baca satu GeoTIFF ke grid kerja (= pasca.rio.reproject_match(pra)).
     Resolusi sama -> nearest (tanpa interpolasi speckle). Lebih kasar -> rata-rata daya linear (multilook).
     """
-    rs = Resampling.average if grid["res"] > grid.get("res_asli", grid["res"]) * 1.01 else Resampling.nearest
     with rasterio.open(path) as src:
+        rs = Resampling.average if grid["res"] > src.res[0] * 1.01 else Resampling.nearest
         with WarpedVRT(src, crs=grid["crs"], transform=grid["transform"],
                        width=grid["width"], height=grid["height"], resampling=rs,
                        src_nodata=src.nodata, nodata=np.nan, dtype="float32") as vrt:
@@ -224,7 +225,7 @@ def tulis_json(obj, path):
         json.dump(_bersih(obj), f, ensure_ascii=False, indent=1, allow_nan=False)
 
 
-def tulis_geojson(gdf: gpd.GeoDataFrame, path: str):
+def tulis_geojson(gdf: gpd.GeoDataFrame, path: str, nd: int = 6):
     """GeoJSON EPSG:4326 dengan properti null (bukan NaN) — aman untuk JSON.parse."""
     g = gdf.to_crs("EPSG:4326")
     fitur = []
@@ -236,7 +237,7 @@ def tulis_geojson(gdf: gpd.GeoDataFrame, path: str):
                       "geometry": r.geometry.__geo_interface__ if r.geometry is not None else None})
     obj = {"type": "FeatureCollection", "features": fitur}
     with open(path, "w", encoding="utf-8") as f:
-        json.dump(_bulatkan_koordinat(obj), f, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
+        json.dump(_bulatkan_koordinat(obj, nd), f, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
 
 
 def _bulatkan_koordinat(o, nd=6):
@@ -331,7 +332,32 @@ def proses(
     delta_hv = db["hv_pasca"] - db["hv_pra"]
     delta_hh = db["hh_pasca"] - db["hh_pra"]
     delta_rasio = (db["hv_pasca"] - db["hh_pasca"]) - (db["hv_pra"] - db["hh_pra"])
-    print(f"[1] dHV median {np.nanmedian(delta_hv):+.2f} dB")
+    print(f"[1] dHV median {np.nanmedian(delta_hv):+.2f} dB (pra -> pasca)")
+
+    # deret 12-harian: dibaca sekali, dipakai untuk deteksi multi-temporal dan kurva pertumbuhan
+    deret = deret or [(tanggal_pra, hv_pra, hh_pra), (tanggal_pasca, hv_pasca, hh_pasca)]
+    deret = sorted({d[0]: d for d in deret}.values(), key=lambda d: d[0])
+    _sudah = {hv_pra: raw["hv_pra"], hv_pasca: raw["hv_pasca"], hh_pra: raw["hh_pra"], hh_pasca: raw["hh_pasca"]}
+    _cache = {}
+    def baca(path):
+        if path in _sudah: return _sudah[path]
+        if path not in _cache: _cache[path] = baca_ke_grid(path, grid)
+        return _cache[path]
+    pasca_list = [d for d in deret if tanggal_pra < d[0] <= tanggal_pasca]
+    multi = p.deteksi_multitemporal and len(pasca_list) >= 2
+    if multi:
+        terdalam = np.full(delta_hv.shape, np.inf, dtype="float32")
+        dhh_m = np.full(delta_hv.shape, np.nan, dtype="float32"); drs_m = dhh_m.copy()
+        for tgl, phv, phh in pasca_list:
+            hv_t = ke_db(rerata_abai_nan(baca(phv), p.ukuran_filter))
+            hh_t = ke_db(rerata_abai_nan(baca(phh), p.ukuran_filter))
+            d = hv_t - db["hv_pra"]
+            u = np.isfinite(d) & (d < terdalam)
+            terdalam[u] = d[u]; dhh_m[u] = (hh_t - db["hh_pra"])[u]
+            drs_m[u] = ((hv_t - hh_t) - (db["hv_pra"] - db["hh_pra"]))[u]
+        delta_hv = np.where(np.isfinite(terdalam), terdalam, np.nan)
+        delta_hh, delta_rasio = dhh_m, drs_m
+        print(f"[1] multi-temporal: penurunan terdalam dari {len(pasca_list)} lintasan, median {np.nanmedian(delta_hv):+.2f} dB")
 
     gdf_khg = gpd.read_file(khg)
     gambut = masker_vektor(gdf_khg, grid)
@@ -347,15 +373,23 @@ def proses(
     luas_gambut_ha = valid.sum() * px_ha
     n_seg = int(max(p.n_superpixel, math.ceil(luas_gambut_ha / p.luas_superpixel_maks_ha)))
     n_seg = min(n_seg, int(valid.sum() // 16) or 1)
-    sp = slic(tensor, n_segments=n_seg, compactness=p.kekompakan_slic, mask=valid,
+    # SLIC di seluruh grid (inisialisasi grid reguler, O(N)), lalu dipotong ke KHG.
+    # slic(mask=...) memakai k-means atas semua piksel masker untuk titik awal -> sangat lambat di AOI besar.
+    frac_valid = max(valid.mean(), 1e-6)
+    sp = slic(tensor, n_segments=int(n_seg / frac_valid), compactness=p.kekompakan_slic,
               channel_axis=-1, convert2lab=False, start_label=1, enforce_connectivity=True)
-    sp = sp.astype("int32")
+    sp = np.where(valid, sp, 0)
+    uniq, inv = np.unique(sp, return_inverse=True)      # label berurutan; 0 = luar KHG
+    sp = (inv + (0 if uniq[0] == 0 else 1)).reshape(valid.shape).astype("int32")
     n_sp = int(sp.max())
     sp_px = np.bincount(sp.ravel(), minlength=n_sp + 1)[1:]
     print(f"[2] SLIC: {n_sp:,} superpixel di KHG, rerata {np.mean(sp_px[sp_px>0])*px_ha:.1f} ha")
 
     m_sp = {k: rata_linear_per_label(raw[k], sp, n_sp) for k in raw}
     dhv_sp = ke_db(m_sp["hv_pasca"] / m_sp["hv_pra"])
+    if multi:
+        for tgl, phv, phh in pasca_list:
+            dhv_sp = np.fmin(dhv_sp, ke_db(rata_linear_per_label(baca(phv), sp, n_sp) / m_sp["hv_pra"]))
     ok_sp = np.isfinite(dhv_sp) & (sp_px > 0)
 
     # Multi-Otsu 3 kelas, histogram dibobot luas superpixel
@@ -404,9 +438,19 @@ def proses(
     label = rasterize(zip(pol.geometry, pol["id"]), out_shape=(grid["height"], grid["width"]),
                       transform=grid["transform"], fill=0, dtype="int32")
     m = {k: rata_linear_per_label(raw[k], label, n) for k in raw}
-    pol["delta_hv_db"] = ke_db(m["hv_pasca"] / m["hv_pra"])
-    pol["delta_hh_db"] = ke_db(m["hh_pasca"] / m["hh_pra"])
-    pol["delta_rasio_db"] = ke_db((m["hv_pasca"] / m["hh_pasca"]) / (m["hv_pra"] / m["hh_pra"]))
+    kand_t = pasca_list if multi else [(tanggal_pasca, hv_pasca, hh_pasca)]
+    dhv_t, dhh_t, drs_t = [], [], []
+    for tgl, phv, phh in kand_t:
+        mhv = rata_linear_per_label(baca(phv), label, n); mhh = rata_linear_per_label(baca(phh), label, n)
+        dhv_t.append(ke_db(mhv / m["hv_pra"])); dhh_t.append(ke_db(mhh / m["hh_pra"]))
+        drs_t.append(ke_db((mhv / mhh) / (m["hv_pra"] / m["hh_pra"])))
+    dhv_t, dhh_t, drs_t = np.array(dhv_t), np.array(dhh_t), np.array(drs_t)
+    k_min = np.nanargmin(np.where(np.isfinite(dhv_t), dhv_t, np.inf), axis=0)
+    ii = np.arange(n)
+    pol["delta_hv_db"] = dhv_t[k_min, ii]
+    pol["delta_hh_db"] = dhh_t[k_min, ii]
+    pol["delta_rasio_db"] = drs_t[k_min, ii]
+    pol["tgl_dampak_maks"] = [kand_t[k][0] for k in k_min]
 
     # ==== TAHAP 3: hotspot <= 375 m, AOD/FRP, 3 kategori ==========================
     hs = baca_hotspot(hotspot_csv, tanggal_pra, tanggal_pasca, p)
@@ -449,8 +493,10 @@ def proses(
     # ==== TAHAP 4: titik bakar mulai -> vektor arah rambatan ======================
     cent = pol.geometry.centroid
     rows = []
+    per_pol = {i: d for i, d in cocok.groupby("id")} if len(cocok) else {}
+    kosong = cocok.iloc[0:0]
     for i, r in pol.iterrows():
-        sub = cocok[cocok["id"] == r["id"]]
+        sub = per_pol.get(r["id"], kosong)
         cx, cy = cent.iloc[i].x, cent.iloc[i].y
         if len(sub):
             t0 = sub["acq_date"].min()
@@ -505,19 +551,16 @@ def proses(
     pol["kabupaten_terdampak"] = pol["id"].map(terdampak).fillna(pol["kabupaten"])
 
     # ==== TAHAP 4b: deret waktu 12-harian (superpixel, kumulatif) ===================
-    deret = deret or [(tanggal_pra, hv_pra, hh_pra), (tanggal_pasca, hv_pasca, hh_pasca)]
-    deret = sorted({d[0]: d for d in deret}.values(), key=lambda d: d[0])
     seri_hv = {str(i): [] for i in pol["id"]}
     seri_hh = {str(i): [] for i in pol["id"]}
     seri_luas = {str(i): [] for i in pol["id"]}
     kumulatif = np.zeros(sp.shape, dtype=bool)
     dalam_pol = label > 0
     for tgl, phv, phh in deret:
-        a_hv = raw["hv_pasca"] if phv == hv_pasca else (raw["hv_pra"] if phv == hv_pra else baca_ke_grid(phv, grid))
-        a_hh = raw["hh_pasca"] if phh == hh_pasca else (raw["hh_pra"] if phh == hh_pra else baca_ke_grid(phh, grid))
+        a_hv, a_hh = baca(phv), baca(phh)
         mhv = ke_db(rata_linear_per_label(a_hv, label, n))
         mhh = ke_db(rata_linear_per_label(a_hh, label, n))
-        if tgl > tanggal_pra:
+        if tanggal_pra < tgl <= tanggal_pasca:
             d_sp = ke_db(rata_linear_per_label(a_hv, sp, n_sp) / m_sp["hv_pra"])
             b = np.zeros(n_sp + 1, dtype=bool)
             b[1:] = np.isfinite(d_sp) & (d_sp < ambang)
@@ -566,7 +609,7 @@ def proses(
     # ==== EKSPOR =====================================================================
     kolom = ["id", "luas_ha", "kabupaten", "kabupaten_terdampak", "delta_hv_db", "delta_hh_db", "delta_rasio_db",
              "terkonfirmasi_hotspot", "kategori", "alasan_kategori", "cv_rectangularity",
-             "tgl_titik_bakar_mulai", "tgl_terdeteksi_nisar", "arah_dampak_derajat", "arah_dampak_kompas",
+             "tgl_titik_bakar_mulai", "tgl_terdeteksi_nisar", "tgl_dampak_maks", "arah_dampak_derajat", "arah_dampak_kompas",
              "arah_dampak_metode", "jangkauan_rambatan_m", "laju_ekspansi_ha_per_hari",
              "jumlah_hotspot", "kepadatan_hotspot_per_km2", "muatan_asap_aod", "rerata_frp_mw", "geometry"]
     out = pol[kolom].copy()
@@ -585,12 +628,11 @@ def proses(
     g_out["geometry"] = g_out.geometry.simplify(max(p.simplify_derajat, 0.0001) * 2, preserve_topology=True)
     tulis_geojson(g_out[["geometry"]], os.path.join(folder_keluaran, "gambut.geojson"))
 
-    h_cols = [c for c in ["acq_date", "frp", "confidence"] if c in ghs.columns]
-    h_out = ghs[h_cols + ["di_gambut", "dalam_deteksi", "id_poligon", "geometry"]].copy()
-    if "confidence" in h_out:
-        h_out["confidence"] = h_out["confidence"].astype(str)
+    # hanya kolom yang dipakai aplikasi (semua titik sudah n/h dan di dalam jendela) -> berkas ringan
+    h_out = ghs[["acq_date", "frp", "dalam_deteksi", "geometry"]].copy()
     h_out["frp"] = h_out["frp"].astype(float).round(1)
-    tulis_geojson(h_out, os.path.join(folder_keluaran, "hotspot.geojson"))
+    h_out["dalam_deteksi"] = h_out["dalam_deteksi"].astype(bool)
+    tulis_geojson(h_out, os.path.join(folder_keluaran, "hotspot.geojson"), nd=4)   # ~11 m, piksel VIIRS 375 m
 
     png_bounds = _tulis_png(delta_hv, gambut, grid, p, os.path.join(folder_keluaran, "perubahan.png"))
     _png_abu(db["hv_pra"], grid, os.path.join(folder_keluaran, "hv_pra.png"))
@@ -653,7 +695,9 @@ def proses(
         "sumber_aod": sumber_aod if ada_aod else "",
         "ukuran_piksel_m": grid["res"], "crs_olah": str(grid["crs"]),
         "deteksi_dibatasi_gambut": True,
-        "metode": "SLIC superpixel (KHG) + Multi-Otsu 3 kelas + rectangularity + hotspot VIIRS n/h <= 375 m",
+        "metode": "SLIC superpixel (KHG) + Multi-Otsu 3 kelas + rectangularity + hotspot VIIRS n/h <= 375 m"
+                  + (" + penurunan HV terdalam multi-temporal" if multi else ""),
+        "deteksi_multitemporal": bool(multi),
         "parameter": asdict(p),
         "png_bounds": png_bounds,   # format langsung untuk MapLibre image source
         "png": {"perubahan": "perubahan.png", "hv_pra": "hv_pra.png", "hv_pasca": "hv_pasca.png"},
@@ -752,23 +796,29 @@ def _crs_gcov(ds):
 
 
 def subset_gcov(sumber, aoi_bbox: tuple, folder: str, nama_dasar: str,
-                frekuensi: str = "frequencyA", layer=("HHHH", "HVHV")) -> dict:
+                frekuensi: str = "frequencyA", layer=("HHHH", "HVHV"),
+                resolusi_m: float = 0.0, folder_lokal: str | None = None) -> dict:
     """
     Ambil HANYA potongan AOI dari satu granule GCOV, simpan sebagai GeoTIFF kecil.
 
-    sumber : path .h5 lokal, atau file-like dari earthaccess.open() (streaming HTTPS).
-             Hanya chunk HDF5 yang beririsan AOI yang dibaca — bukan seluruh granule.
+    sumber      : path .h5 lokal (paling cepat), atau file-like dari fsspec/earthaccess (streaming HTTPS).
+    resolusi_m  : 0 = simpan resolusi asli (20 m). 80 = multilook 4x4 rata-rata daya LINEAR saat subset:
+                  berkas 16x lebih kecil, dan sama persis dengan yang dipakai proses(resolusi_m=80).
+    folder_lokal: tulis dulu ke disk lokal Colab (/content/...), baru salin ke `folder` (Drive).
+                  Menulis GeoTIFF langsung ke Drive FUSE sangat lambat.
     Kembalian: {'HHHH': path_hh.tif, 'HVHV': path_hv.tif}
 
     Sengaja tidak memakai GDAL: GDAL < 3.13 (versi bawaan rasterio di Colab) tidak
     membaca georeferensi NISAR dari HDF5 secara otomatis.
     """
+    import shutil
     import xarray as xr
     import rioxarray  # noqa: F401  (mendaftarkan accessor .rio)
 
     os.makedirs(folder, exist_ok=True)
+    tulis_ke = folder_lokal or folder
+    os.makedirs(tulis_ke, exist_ok=True)
     grup = f"/science/LSAR/GCOV/grids/{frekuensi}"
-    # tanpa chunks: xarray tetap lazy, dan .sel() hanya membaca hyperslab AOI dari HDF5
     ds = xr.open_dataset(sumber, engine="h5netcdf", group=grup, phony_dims="access",
                          decode_timedelta=False)
     crs = _crs_gcov(ds)
@@ -776,6 +826,8 @@ def subset_gcov(sumber, aoi_bbox: tuple, folder: str, nama_dasar: str,
     x, y = ds["xCoordinates"].values, ds["yCoordinates"].values
     xsl = slice(w, e) if x[0] < x[-1] else slice(e, w)
     ysl = slice(n, s) if y[0] > y[-1] else slice(s, n)
+    res_asli = float(abs(x[1] - x[0]))
+    f = max(1, int(round(resolusi_m / res_asli))) if resolusi_m else 1
 
     hasil = {}
     for L in layer:
@@ -785,17 +837,62 @@ def subset_gcov(sumber, aoi_bbox: tuple, folder: str, nama_dasar: str,
         da = ds[L].sel(xCoordinates=xsl, yCoordinates=ysl)
         if da.size == 0:
             raise ValueError(f"AOI tidak beririsan dengan granule ini ({L}). Pilih granule lain.")
-        da = (da.rename({"xCoordinates": "x", "yCoordinates": "y"})
-                .astype("float32")
-                .rio.set_spatial_dims(x_dim="x", y_dim="y")
-                .rio.write_crs(crs)
-                .rio.write_nodata(np.nan))
-        p = os.path.join(folder, f"{nama_dasar}_{L[:2].lower()}.tif")
-        da.load().rio.to_raster(p, compress="deflate", tiled=True)
+        da = da.rename({"xCoordinates": "x", "yCoordinates": "y"}).astype("float32").load()
+        if f > 1:
+            # multilook di domain linear; nol/negatif = nodata. Koordinat hasil = pusat blok.
+            da = da.where(da > 0).coarsen(x=f, y=f, boundary="trim").mean().astype("float32")
+        da = (da.rio.set_spatial_dims(x_dim="x", y_dim="y").rio.write_crs(crs).rio.write_nodata(np.nan))
+        nama = f"{nama_dasar}_{L[:2].lower()}.tif"
+        p_tmp = os.path.join(tulis_ke, nama)
+        da.rio.to_raster(p_tmp, compress="deflate", predictor=3, tiled=True)
+        p = os.path.join(folder, nama)
+        if folder_lokal:
+            shutil.copyfile(p_tmp, p + ".part"); os.replace(p + ".part", p); os.remove(p_tmp)
         hasil[L] = p
-        print(f"  [subset] {L}: {da.shape[1]}x{da.shape[0]} px -> {p} ({os.path.getsize(p)/1e6:.1f} MB)")
+        print(f"  [subset] {L}: {da.shape[1]}x{da.shape[0]} px @ {res_asli*f:.0f} m -> {p} ({os.path.getsize(p)/1e6:.1f} MB)")
     ds.close()
     return hasil
+
+
+def gabung_frame(paths: list, path_keluar: str) -> str:
+    """
+    Mosaik beberapa frame GCOV dari SATU lintasan (tanggal, track, arah sama) menjadi satu GeoTIFF.
+    Semua frame diselaraskan ke CRS/resolusi frame pertama (beda zona UTM ditangani), lalu
+    tumpang-tindih dirata-rata di domain daya LINEAR.
+    """
+    paths = [p for p in paths if p and os.path.exists(p)]
+    if not paths:
+        raise ValueError("gabung_frame: tidak ada berkas")
+    if len(paths) == 1:
+        import shutil
+        if os.path.abspath(paths[0]) != os.path.abspath(path_keluar):
+            shutil.copyfile(paths[0], path_keluar)
+        return path_keluar
+    with rasterio.open(paths[0]) as r0:
+        crs, res, t0 = r0.crs, r0.res[0], r0.transform
+    batas = []
+    for p in paths:
+        with rasterio.open(p) as r:
+            batas.append(transform_bounds(r.crs, crs, *r.bounds, densify_pts=21))
+    w = min(b[0] for b in batas); s = min(b[1] for b in batas)
+    e = max(b[2] for b in batas); n = max(b[3] for b in batas)
+    x0 = t0.c + np.floor((w - t0.c) / res) * res
+    y0 = t0.f + np.ceil((n - t0.f) / res) * res
+    grid = {"crs": crs, "transform": from_origin(x0, y0, res, res), "res": res,
+            "width": int(np.ceil((e - x0) / res)), "height": int(np.ceil((y0 - s) / res))}
+    jum = np.zeros((grid["height"], grid["width"]), "float64")
+    cnt = np.zeros_like(jum)
+    for p in paths:
+        a = baca_ke_grid(p, grid)
+        v = np.isfinite(a)
+        jum[v] += a[v]; cnt[v] += 1
+    with np.errstate(invalid="ignore", divide="ignore"):
+        out = np.where(cnt > 0, jum / cnt, np.nan).astype("float32")
+    with rasterio.open(path_keluar, "w", driver="GTiff", height=grid["height"], width=grid["width"], count=1,
+                       dtype="float32", crs=crs, transform=grid["transform"], nodata=np.nan,
+                       compress="deflate", predictor=3, tiled=True) as d:
+        d.write(out, 1)
+    return path_keluar
 
 
 def tulis_indeks(folder_root: str, urutan=("riau", "kalteng", "merauke")) -> list:
