@@ -911,7 +911,7 @@ def gabung_frame(paths: list, path_keluar: str) -> str:
     return path_keluar
 
 
-def tulis_indeks(folder_root: str, urutan=("riau", "kalteng", "merauke")) -> list:
+def tulis_indeks(folder_root: str, urutan=("kalteng", "merauke", "riau")) -> list:
     """
     Setiap AOI punya subfolder sendiri di keluaran/. Fungsi ini memindai subfolder dan menulis
     keluaran/aoi.json, satu-satunya berkas yang dibaca aplikasi saat pertama dibuka.
