@@ -2,67 +2,25 @@
  "versi_kontrak": "3.0",
  "aoi": [
   {
-   "slug": "riau",
-   "nama": "Bengkalis, Riau (SYNTHETIC)",
-   "bbox": [
-    101.954,
-    0.786,
-    102.212,
-    1.046
-   ],
-   "mode": "sintetis",
-   "tanggal_pra": "2026-07-04",
-   "tanggal_pasca": "2026-10-12",
-   "total_ha": 1765.12,
-   "terkonfirmasi_ha": 633.16,
-   "kandidat_tersembunyi_ha": 459.36,
-   "perlu_verifikasi_ha": 672.6,
-   "rasio_kebutaan_termal_akibat_asap_persen": 42.046,
-   "arah_rambatan_dampak_dominan": "Timur",
-   "validasi_hotspot_persen": 75.0,
-   "data_sintetis": true
-  },
-  {
    "slug": "kalteng",
-   "nama": "Pulang Pisau, Central Kalimantan (SYNTHETIC)",
+   "nama": "Sebangau-Pulang Pisau, Kalteng",
    "bbox": [
-    113.854,
-    -2.463,
-    114.113,
-    -2.204
+    113.0,
+    -3.2,
+    114.5,
+    -1.8
    ],
-   "mode": "sintetis",
-   "tanggal_pra": "2026-07-04",
-   "tanggal_pasca": "2026-10-12",
-   "total_ha": 1750.64,
-   "terkonfirmasi_ha": 628.8,
-   "kandidat_tersembunyi_ha": 453.16,
-   "perlu_verifikasi_ha": 668.68,
-   "rasio_kebutaan_termal_akibat_asap_persen": 41.883,
-   "arah_rambatan_dampak_dominan": "Timur",
-   "validasi_hotspot_persen": 75.0,
-   "data_sintetis": true
-  },
-  {
-   "slug": "merauke",
-   "nama": "Merauke, South Papua (SYNTHETIC)",
-   "bbox": [
-    140.304,
-    -8.065,
-    140.565,
-    -7.804
-   ],
-   "mode": "sintetis",
-   "tanggal_pra": "2026-07-04",
-   "tanggal_pasca": "2026-10-12",
-   "total_ha": 1765.44,
-   "terkonfirmasi_ha": 629.28,
-   "kandidat_tersembunyi_ha": 461.72,
-   "perlu_verifikasi_ha": 674.44,
-   "rasio_kebutaan_termal_akibat_asap_persen": 42.321,
-   "arah_rambatan_dampak_dominan": "Timur",
-   "validasi_hotspot_persen": 75.0,
-   "data_sintetis": true
+   "mode": "nisar",
+   "tanggal_pra": "2026-07-24",
+   "tanggal_pasca": "2026-10-28",
+   "total_ha": 76716.8,
+   "terkonfirmasi_ha": 69064.32,
+   "kandidat_tersembunyi_ha": 892.16,
+   "perlu_verifikasi_ha": 6760.32,
+   "rasio_kebutaan_termal_akibat_asap_persen": 1.275,
+   "arah_rambatan_dampak_dominan": "Barat Laut",
+   "validasi_hotspot_persen": 39.924,
+   "data_sintetis": false
   }
  ]
 }

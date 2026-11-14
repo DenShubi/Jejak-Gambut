@@ -1,40 +1,45 @@
 {
  "versi_kontrak": "3.0",
- "mode": "sintetis",
- "data_sintetis": true,
- "aoi_nama": "Pulang Pisau, Central Kalimantan (SYNTHETIC)",
+ "mode": "nisar",
+ "data_sintetis": false,
+ "aoi_nama": "Sebangau-Pulang Pisau, Kalteng",
  "aoi_bbox": [
-  113.854,
-  -2.463,
-  114.113,
-  -2.204
+  113.0,
+  -3.2,
+  114.5,
+  -1.8
  ],
- "tanggal_pra": "2026-07-04",
- "tanggal_pasca": "2026-10-12",
+ "tanggal_pra": "2026-07-24",
+ "tanggal_pasca": "2026-10-28",
  "tanggal_deret": [
-  "2026-07-04",
-  "2026-07-28",
-  "2026-08-21",
-  "2026-09-14",
-  "2026-10-12"
+  "2026-07-24",
+  "2026-08-17",
+  "2026-08-29",
+  "2026-09-10",
+  "2026-09-22",
+  "2026-10-04",
+  "2026-10-16",
+  "2026-10-28"
  ],
  "produk": "NISAR_L2_GCOV_PROVISIONAL_V1",
  "polarisasi": [
   "HV",
   "HH"
  ],
- "granule_pra": "",
- "granule_pasca": "",
- "sumber_aod": "sintetis",
- "ukuran_piksel_m": 20.0,
+ "granule_pra": "NISAR_L2_PR_GCOV_026_061_D_089_2005_DHDH_M_20260724T104505_20260724T104540_P05023_N_F_J_001, NISAR_L2_PR_GCOV_026_061_D_090_4005_DHDH_A_20260724T104539_20260724T104610_P05023_N_F_J_001",
+ "granule_pasca": "NISAR_L2_PR_GCOV_034_061_D_089_2005_DHDH_M_20261028T104504_20261028T104539_P05036_N_F_J_001, NISAR_L2_PR_GCOV_034_061_D_090_4005_DHDH_A_20261028T104538_20261028T104609_P05036_N_F_J_001",
+ "sumber_aod": "MERRA-2 M2TMNXAER TOTEXTTAU",
+ "ukuran_piksel_m": 80.0,
  "crs_olah": "EPSG:32749",
  "deteksi_dibatasi_gambut": true,
- "metode": "SLIC superpixel (KHG) + Multi-Otsu 3 kelas + rectangularity + hotspot VIIRS n/h <= 375 m",
+ "metode": "SLIC superpixel (KHG) + Multi-Otsu 3 kelas + rectangularity + hotspot VIIRS n/h <= 375 m + penurunan HV terdalam multi-temporal",
+ "deteksi_multitemporal": true,
  "parameter": {
-  "resolusi_m": 0.0,
-  "ukuran_filter": 5,
+  "resolusi_m": 80,
+  "ukuran_filter": 3,
   "n_superpixel": 3500,
-  "luas_superpixel_maks_ha": 50.0,
+  "luas_superpixel_maks_ha": 10.0,
+  "deteksi_multitemporal": true,
   "kekompakan_slic": 0.3,
   "ambang_hv_db": null,
   "ambang_hv_maks_db": -1.8,
@@ -54,20 +59,20 @@
  },
  "png_bounds": [
   [
-   113.853,
-   -2.203
+   112.997,
+   -1.798
   ],
   [
-   114.113,
-   -2.203
+   114.503,
+   -1.798
   ],
   [
-   114.113,
-   -2.464
+   114.503,
+   -3.204
   ],
   [
-   113.853,
-   -2.464
+   112.997,
+   -3.204
   ]
  ],
  "png": {
