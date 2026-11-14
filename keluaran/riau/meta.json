@@ -1,0 +1,94 @@
+{
+ "versi_kontrak": "3.0",
+ "mode": "nisar",
+ "data_sintetis": false,
+ "aoi_nama": "Bengkalis-Siak-Pelalawan, Riau",
+ "aoi_bbox": [
+  101.5,
+  0.0,
+  103.0,
+  1.8
+ ],
+ "tanggal_pra": "2026-07-18",
+ "tanggal_pasca": "2026-09-16",
+ "tanggal_deret": [
+  "2026-07-18",
+  "2026-08-11",
+  "2026-08-23",
+  "2026-09-04",
+  "2026-09-16"
+ ],
+ "produk": "NISAR_L2_GCOV_PROVISIONAL_V1",
+ "polarisasi": [
+  "HV",
+  "HH"
+ ],
+ "granule_pra": "NISAR_L2_PR_GCOV_025_148_D_087_4005_DHDH_A_20260718T113356_20260718T113430_P05023_N_F_J_001, NISAR_L2_PR_GCOV_025_148_D_088_4005_DHDH_A_20260718T113429_20260718T113504_P05023_N_F_J_001",
+ "granule_pasca": "NISAR_L2_PR_GCOV_030_148_D_087_4005_DHDH_A_20260916T113353_20260916T113428_P05023_N_F_J_001, NISAR_L2_PR_GCOV_030_148_D_088_4005_DHDH_A_20260916T113427_20260916T113501_P05023_N_F_J_001, NISAR_L2_PR_GCOV_030_148_D_089_4005_DHDH_A_20260916T113500_20260916T113535_P05023_N_F_J_001",
+ "sumber_aod": "MERRA-2 M2TMNXAER TOTEXTTAU",
+ "ukuran_piksel_m": 80.0,
+ "crs_olah": "EPSG:32648",
+ "deteksi_dibatasi_gambut": true,
+ "metode": "SLIC superpixel (KHG) + Multi-Otsu 3 kelas + rectangularity + hotspot VIIRS n/h <= 375 m + penurunan HV terdalam multi-temporal",
+ "deteksi_multitemporal": true,
+ "parameter": {
+  "resolusi_m": 80,
+  "ukuran_filter": 3,
+  "n_superpixel": 3500,
+  "luas_superpixel_maks_ha": 10.0,
+  "deteksi_multitemporal": true,
+  "kekompakan_slic": 0.1,
+  "ambang_hv_db": null,
+  "ambang_hv_maks_db": -1.8,
+  "luas_min_ha": 1.0,
+  "ambang_rasio_db": -1.0,
+  "ambang_rectangularity": 0.78,
+  "luas_min_bentuk_ha": 10.0,
+  "min_superpixel_bentuk": 3,
+  "buffer_hotspot_m": 375.0,
+  "radius_konteks_api_m": 3000.0,
+  "confidence_hotspot": [
+   "n",
+   "h"
+  ],
+  "ambang_aod_pekat": 1.0,
+  "simplify_derajat": 0.0,
+  "alpha_png": 0.8,
+  "sembunyikan_png_di_bawah_db": 1.5,
+  "tampilkan_png_luar_gambut": false
+ },
+ "png_bounds": [
+  [
+   101.498,
+   1.802
+  ],
+  [
+   103.001,
+   1.802
+  ],
+  [
+   103.001,
+   -0.0
+  ],
+  [
+   101.498,
+   -0.0
+  ]
+ ],
+ "png": {
+  "perubahan": "perubahan.png",
+  "hv_pra": "hv_pra.png",
+  "hv_pasca": "hv_pasca.png"
+ },
+ "berkas": [
+  "terbakar.geojson",
+  "arah_rambatan.geojson",
+  "gambut.geojson",
+  "hotspot.geojson",
+  "statistik.json",
+  "deret_waktu.json",
+  "perubahan.png",
+  "hv_pra.png",
+  "hv_pasca.png"
+ ]
+}

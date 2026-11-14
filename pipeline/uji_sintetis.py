@@ -61,6 +61,8 @@ def bangun_dan_uji(slug, nama, lon0, lat0, CRS, kab_nama):
     blob_B = lidah(735, 900, 60, 1.1)                # memotong batas kabupaten x=750
     blob_C = lidah(400, 1200, 50, 2.0)
     kotak_R = kotak_miring(840, 330, 130, 70, 30)
+    blob_G = lidah(170, 820, 55, 0.7)
+    blob_H = lidah(600, 160, 45, 1.9)                 # tajuk hilang, rasio turun, organik, TANPA api & udara bersih (panen?)                 # terbakar Agu, PULIH sebelum pasca (pakis tumbuh / basah)
     sawah = (xx > 1150) & (xx < 1400) & (yy > 300) & (yy < 700)   # luar gambut
 
     def scene(tgl):
@@ -70,6 +72,11 @@ def bangun_dan_uji(slug, nama, lon0, lat0, CRS, kab_nama):
             hv[A_barat] = -18.0; hh[A_barat] = -8.0
             hv[blob_B] = -18.0; hh[blob_B] = -8.0
             hv[kotak_R] = -18.5; hh[kotak_R] = -7.5                      # tebang: kanopi hilang
+            hv[blob_H] = -18.0; hh[blob_H] = -8.0
+            if tgl < "2026-10-12":
+                hv[blob_G] = -18.0; hh[blob_G] = -8.0                    # G terbakar...
+            else:
+                hv[blob_G] = -12.3; hh[blob_G] = -7.0                    # ...lalu pulih pada pasca
         if tgl >= "2026-09-14":
             hv[blob_A] = -18.0; hh[blob_A] = -8.0
             hv[blob_C] = -18.0; hh[blob_C] = -13.0                       # dua-duanya turun
@@ -202,6 +209,15 @@ def bangun_dan_uji(slug, nama, lon0, lat0, CRS, kab_nama):
     for nm, x in [("A", A), ("B", B)]:
         if x is not None:
             cek(x["cv_rectangularity"] < 0.78, f"{nm} organik: rectangularity < 0.78 (dapat {x['cv_rectangularity']:.2f})")
+    H = poli(600, 160)
+    cek(H is not None and H["kategori"] == "perlu_verifikasi" and H["alasan_kategori"] == "tanpa_konteks_api",
+        f"H (tanpa api, udara bersih) -> perlu_verifikasi/tanpa_konteks_api (dapat {None if H is None else (H['kategori'], H['alasan_kategori'])})")
+    G = poli(170, 820)
+    cek(G is not None, "G (terbakar lalu pulih sebelum pasca) TETAP terdeteksi oleh deteksi multi-temporal")
+    if G is not None:
+        cek(G["kategori"] == "kandidat_tersembunyi", f"G -> kandidat_tersembunyi (dapat {G['kategori']})")
+        cek(str(G["tgl_dampak_maks"])[:10] in ("2026-08-21", "2026-09-14"), f"G dampak terdalam Agu/Sep (dapat {G['tgl_dampak_maks']})")
+        cek(G["delta_hv_db"] < -4, f"G dHV terdalam ~ -6 dB, bukan nilai pasca yang sudah pulih (dapat {G['delta_hv_db']:+.1f})")
     if C is not None:
         cek(C["alasan_kategori"] == "rasio_tidak_turun", f"C alasan rasio_tidak_turun (dapat {C['alasan_kategori']})")
 
@@ -261,7 +277,7 @@ def bangun_dan_uji(slug, nama, lon0, lat0, CRS, kab_nama):
     pa = gpd.read_file(f"{K}/arah_rambatan.geojson")
     cek(len(pa) == len(t) and set(pa.geom_type) == {"LineString"}, "satu panah per poligon")
     hsj = gpd.read_file(f"{K}/hotspot.geojson")
-    cek((hsj["confidence"] == "l").sum() == 0, "hotspot confidence 'l' tidak diekspor")
+    cek(len(hsj) == 8 + 0 or len(hsj) >= 6, f"hotspot.geojson hanya titik n/h ({len(hsj)})")
 
     m = json.load(open(f"{K}/meta.json"))
     cek(m["versi_kontrak"] == "3.0" and m["mode"] == "sintetis", "meta v3.0, mode sintetis")

@@ -1,0 +1,111 @@
+{
+ "total_ha": 36268.8,
+ "terkonfirmasi_ha": 329.6,
+ "kandidat_tersembunyi_ha": 1607.68,
+ "perlu_verifikasi_ha": 34331.52,
+ "dampak_kombinasi_asap_dan_hotspot_ha": 1937.28,
+ "rasio_kebutaan_termal_akibat_asap_persen": 82.986,
+ "persen_luput_di_bawah_asap_pekat": null,
+ "validasi_hotspot_persen": 26.328,
+ "arah_rambatan_dampak_dominan": "Timur Laut",
+ "arah_rambatan_dampak_dominan_derajat": 41.612,
+ "ambang_multiotsu_db": -1.961,
+ "ambang_dipakai_db": -1.961,
+ "sumber_ambang": "multiotsu",
+ "ambang_multiotsu_semua_db": [
+  -1.961,
+  -0.398
+ ],
+ "jumlah_superpixel": 203597,
+ "jumlah_hotspot": 433,
+ "jumlah_poligon": 590,
+ "rerata_aod": 0.439,
+ "ambang_aod_pekat": 1.0,
+ "kuadran_asap_hotspot": {
+  "asap_pekat_ada_hotspot": {
+   "jumlah_poligon": 0,
+   "ha": 0.0,
+   "rerata_minus_dhv_db": null
+  },
+  "asap_pekat_tanpa_hotspot": {
+   "jumlah_poligon": 0,
+   "ha": 0.0,
+   "rerata_minus_dhv_db": null
+  },
+  "asap_tipis_ada_hotspot": {
+   "jumlah_poligon": 9,
+   "ha": 329.6,
+   "rerata_minus_dhv_db": 2.582
+  },
+  "asap_tipis_tanpa_hotspot": {
+   "jumlah_poligon": 581,
+   "ha": 35939.2,
+   "rerata_minus_dhv_db": 2.613
+  }
+ },
+ "luas_kumulatif_ha": [
+  0.0,
+  20368.64,
+  25975.04,
+  30928.64,
+  36016.64
+ ],
+ "per_kabupaten": [
+  {
+   "nama": "Pelalawan",
+   "ha": 13452.064,
+   "terkonfirmasi_ha": 158.08,
+   "tertutup_asap_ha": 0.0,
+   "perlu_verifikasi_ha": 13293.984
+  },
+  {
+   "nama": "Siak",
+   "ha": 11732.166,
+   "terkonfirmasi_ha": 157.163,
+   "tertutup_asap_ha": 1475.2,
+   "perlu_verifikasi_ha": 10099.803
+  },
+  {
+   "nama": "Bengkalis",
+   "ha": 6590.028,
+   "terkonfirmasi_ha": 0.277,
+   "tertutup_asap_ha": 0.0,
+   "perlu_verifikasi_ha": 6589.751
+  },
+  {
+   "nama": "Kepulauan Meranti",
+   "ha": 1177.055,
+   "terkonfirmasi_ha": 0.0,
+   "tertutup_asap_ha": 0.0,
+   "perlu_verifikasi_ha": 1177.055
+  },
+  {
+   "nama": "Indragiri Hilir",
+   "ha": 1133.44,
+   "terkonfirmasi_ha": 0.0,
+   "tertutup_asap_ha": 0.0,
+   "perlu_verifikasi_ha": 1133.44
+  },
+  {
+   "nama": "Kampar",
+   "ha": 1116.821,
+   "terkonfirmasi_ha": 14.08,
+   "tertutup_asap_ha": 130.56,
+   "perlu_verifikasi_ha": 972.181
+  },
+  {
+   "nama": "Kota Dumai",
+   "ha": 1033.063,
+   "terkonfirmasi_ha": 0.0,
+   "tertutup_asap_ha": 0.0,
+   "perlu_verifikasi_ha": 1033.063
+  },
+  {
+   "nama": "Kota Pekanbaru",
+   "ha": 7.681,
+   "terkonfirmasi_ha": 0.0,
+   "tertutup_asap_ha": 1.92,
+   "perlu_verifikasi_ha": 5.761
+  }
+ ]
+}

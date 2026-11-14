@@ -1,25 +1,25 @@
 {
- "total_ha": 76716.8,
- "terkonfirmasi_ha": 69064.32,
- "kandidat_tersembunyi_ha": 892.16,
- "perlu_verifikasi_ha": 6760.32,
- "dampak_kombinasi_asap_dan_hotspot_ha": 69956.48,
- "rasio_kebutaan_termal_akibat_asap_persen": 1.275,
+ "total_ha": 82816.64,
+ "terkonfirmasi_ha": 74178.56,
+ "kandidat_tersembunyi_ha": 1196.8,
+ "perlu_verifikasi_ha": 7441.28,
+ "dampak_kombinasi_asap_dan_hotspot_ha": 75375.36,
+ "rasio_kebutaan_termal_akibat_asap_persen": 1.588,
  "persen_luput_di_bawah_asap_pekat": null,
- "validasi_hotspot_persen": 39.924,
+ "validasi_hotspot_persen": 43.234,
  "arah_rambatan_dampak_dominan": "Barat Laut",
- "arah_rambatan_dampak_dominan_derajat": 324.507,
- "ambang_multiotsu_db": -1.57,
+ "arah_rambatan_dampak_dominan_derajat": 302.464,
+ "ambang_multiotsu_db": -1.648,
  "ambang_dipakai_db": -1.8,
  "sumber_ambang": "multiotsu",
  "ambang_multiotsu_semua_db": [
-  -1.57,
+  -1.648,
   -0.398
  ],
- "jumlah_superpixel": 219657,
+ "jumlah_superpixel": 219474,
  "jumlah_hotspot": 67202,
- "jumlah_poligon": 1302,
- "rerata_aod": 0.381,
+ "jumlah_poligon": 1352,
+ "rerata_aod": 0.382,
  "ambang_aod_pekat": 1.0,
  "kuadran_asap_hotspot": {
   "asap_pekat_ada_hotspot": {
@@ -33,61 +33,61 @@
    "rerata_minus_dhv_db": null
   },
   "asap_tipis_ada_hotspot": {
-   "jumlah_poligon": 998,
-   "ha": 69064.32,
-   "rerata_minus_dhv_db": 2.178
+   "jumlah_poligon": 1010,
+   "ha": 74178.56,
+   "rerata_minus_dhv_db": 2.252
   },
   "asap_tipis_tanpa_hotspot": {
-   "jumlah_poligon": 304,
-   "ha": 7652.48,
-   "rerata_minus_dhv_db": 2.166
+   "jumlah_poligon": 342,
+   "ha": 8638.08,
+   "rerata_minus_dhv_db": 2.28
   }
  },
  "luas_kumulatif_ha": [
   0.0,
-  2631.04,
-  7827.84,
-  12645.12,
-  25340.16,
-  35682.56,
-  59455.36,
-  76707.84
+  3157.12,
+  8994.56,
+  14550.4,
+  29163.52,
+  40168.32,
+  64054.4,
+  81994.24
  ],
  "per_kabupaten": [
   {
    "nama": "Pulang Pisau",
-   "ha": 32837.64,
-   "terkonfirmasi_ha": 30851.563,
-   "tertutup_asap_ha": 0.0,
-   "perlu_verifikasi_ha": 1986.077
+   "ha": 34678.826,
+   "terkonfirmasi_ha": 32506.63,
+   "tertutup_asap_ha": 188.16,
+   "perlu_verifikasi_ha": 1984.036
   },
   {
    "nama": "Katingan",
-   "ha": 17625.855,
-   "terkonfirmasi_ha": 15310.975,
-   "tertutup_asap_ha": 0.0,
-   "perlu_verifikasi_ha": 2314.88
+   "ha": 19161.323,
+   "terkonfirmasi_ha": 16528.898,
+   "tertutup_asap_ha": 37.12,
+   "perlu_verifikasi_ha": 2595.305
   },
   {
    "nama": "Kapuas",
-   "ha": 12808.533,
-   "terkonfirmasi_ha": 11603.91,
-   "tertutup_asap_ha": 273.706,
-   "perlu_verifikasi_ha": 930.917
+   "ha": 14699.011,
+   "terkonfirmasi_ha": 13141.253,
+   "tertutup_asap_ha": 594.986,
+   "perlu_verifikasi_ha": 962.772
   },
   {
    "nama": "Kotawaringin Timur",
-   "ha": 7885.065,
-   "terkonfirmasi_ha": 6726.31,
-   "tertutup_asap_ha": 618.24,
-   "perlu_verifikasi_ha": 540.515
+   "ha": 8286.792,
+   "terkonfirmasi_ha": 7021.944,
+   "tertutup_asap_ha": 323.2,
+   "perlu_verifikasi_ha": 941.648
   },
   {
    "nama": "Kota Palangka Raya",
-   "ha": 5500.581,
-   "terkonfirmasi_ha": 4518.609,
-   "tertutup_asap_ha": 0.0,
-   "perlu_verifikasi_ha": 981.972
+   "ha": 5930.386,
+   "terkonfirmasi_ha": 4924.369,
+   "tertutup_asap_ha": 53.12,
+   "perlu_verifikasi_ha": 952.897
   }
  ]
 }

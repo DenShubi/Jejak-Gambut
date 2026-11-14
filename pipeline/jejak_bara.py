@@ -80,14 +80,17 @@ class Parameter:
     n_superpixel: int = 3500          # minimum jumlah superpixel di dalam KHG
     luas_superpixel_maks_ha: float = 10.0   # kalau KHG luas, tambah superpixel supaya rerata <= ini
     deteksi_multitemporal: bool = True # dHV = penurunan TERDALAM di semua lintasan pra<t<=pasca (tangkap luka yg lalu pulih)
-    kekompakan_slic: float = 0.3      # kecil = ikut batas radiometrik, besar = lebih kotak
+    kekompakan_slic: float = 0.1      # kecil = ikut batas radiometrik, besar = lebih kotak
     ambang_hv_db: float | None = None # None = otomatis Multi-Otsu. Isi angka untuk override manual
     ambang_hv_maks_db: float = -1.8   # ambang adaptif tidak boleh lebih longgar dari ini
     luas_min_ha: float = 1.0          # buang poligon lebih kecil dari ini
     # --- klasifikasi
     ambang_rasio_db: float = -1.0     # dRasio HV/HH < ini = kanopi hilang tapi permukaan tetap (organik)
     ambang_rectangularity: float = 0.78   # >= ini = bentuk kotak (pembukaan mekanis)
+    luas_min_bentuk_ha: float = 10.0  # poligon lebih kecil: bentuknya tak bermakna (2 piksel selalu "kotak")
+    min_superpixel_bentuk: int = 3    # poligon dari 1-2 superpixel: bentuknya = bentuk SLIC, bukan bentang lahan
     buffer_hotspot_m: float = 375.0   # satu piksel VIIRS I-band
+    radius_konteks_api_m: float = 3000.0  # "tersembunyi" butuh api VIIRS dalam radius ini ATAU asap pekat
     confidence_hotspot: tuple = ("n", "h")   # VIIRS: l / n / h. 'l' dibuang (flaring, pantulan awan)
     # --- asap
     ambang_aod_pekat: float = 1.0     # AOD 550 nm di atas ini = asap pekat (kuadran)
@@ -479,13 +482,26 @@ def proses(
     titik_rep = gpd.GeoSeries(pol.representative_point(), crs=grid["crs"]).to_crs("EPSG:4326")
     pol["muatan_asap_aod"] = sampel_raster(aod_tif, titik_rep)
 
-    organik = pol["cv_rectangularity"] < p.ambang_rectangularity
+    # bentuk hanya dinilai bila poligon cukup besar (>= ~16 piksel di 80 m)
+    pasang = np.unique(label[label > 0].astype("int64") * (n_sp + 1) + sp[label > 0])
+    pol["jumlah_superpixel"] = pol["id"].map(pd.Series(pasang // (n_sp + 1)).value_counts()).fillna(0).astype(int)
+    bentuk_dinilai = (pol["luas_ha"] >= p.luas_min_bentuk_ha) & (pol["jumlah_superpixel"] >= p.min_superpixel_bentuk)
+    organik = (pol["cv_rectangularity"] < p.ambang_rectangularity) | ~bentuk_dinilai
     rasio_turun = pol["delta_rasio_db"] < p.ambang_rasio_db
+    # konteks api: "tersembunyi" = luput dari VIIRS karena asap pekat ATAU api di sela lintasan satelit.
+    # Tanpa api VIIRS di sekitar DAN tanpa asap pekat, kehilangan tajuk lebih mungkin panen/pembukaan.
+    buf_k = gpd.GeoDataFrame({"id": pol["id"]}, geometry=pol.buffer(p.radius_konteks_api_m), crs=grid["crs"])
+    sekitar = gpd.sjoin(ghs[["geometry"]], buf_k, how="inner", predicate="within") if len(ghs) else buf_k.iloc[0:0]
+    pol["hotspot_dalam_3km"] = pol["id"].map(sekitar.groupby("id").size()).fillna(0).astype(int)
+    asap_pekat = pol["muatan_asap_aod"].fillna(0) >= p.ambang_aod_pekat
+    konteks = (pol["hotspot_dalam_3km"] > 0) | asap_pekat
+    tersembunyi = rasio_turun & organik & konteks
     pol["kategori"] = np.where(pol["terkonfirmasi_hotspot"], "terkonfirmasi",
-                      np.where(rasio_turun & organik, "kandidat_tersembunyi", "perlu_verifikasi"))
+                      np.where(tersembunyi, "kandidat_tersembunyi", "perlu_verifikasi"))
     pol["alasan_kategori"] = np.where(pol["terkonfirmasi_hotspot"], "hotspot_375m",
-                             np.where(rasio_turun & organik, "rasio_turun_organik",
-                             np.where(~organik, "bentuk_kotak", "rasio_tidak_turun")))
+                             np.where(tersembunyi, "rasio_turun_organik",
+                             np.where(~organik, "bentuk_kotak",
+                             np.where(~rasio_turun, "rasio_tidak_turun", "tanpa_konteks_api"))))
     print(f"[3] {len(hs_gambut)} hotspot n/h di gambut, "
           + (f"{validasi:.0f}% jatuh di dalam deteksi" if len(hs_gambut) else "tidak ada"))
     print("[3] " + ", ".join(f"{k}: {v:,.1f} ha" for k, v in pol.groupby("kategori")["luas_ha"].sum().items()))
@@ -608,10 +624,10 @@ def proses(
 
     # ==== EKSPOR =====================================================================
     kolom = ["id", "luas_ha", "kabupaten", "kabupaten_terdampak", "delta_hv_db", "delta_hh_db", "delta_rasio_db",
-             "terkonfirmasi_hotspot", "kategori", "alasan_kategori", "cv_rectangularity",
+             "terkonfirmasi_hotspot", "kategori", "alasan_kategori", "cv_rectangularity", "jumlah_superpixel",
              "tgl_titik_bakar_mulai", "tgl_terdeteksi_nisar", "tgl_dampak_maks", "arah_dampak_derajat", "arah_dampak_kompas",
              "arah_dampak_metode", "jangkauan_rambatan_m", "laju_ekspansi_ha_per_hari",
-             "jumlah_hotspot", "kepadatan_hotspot_per_km2", "muatan_asap_aod", "rerata_frp_mw", "geometry"]
+             "jumlah_hotspot", "hotspot_dalam_3km", "kepadatan_hotspot_per_km2", "muatan_asap_aod", "rerata_frp_mw", "geometry"]
     out = pol[kolom].copy()
     out["geometry"] = out.to_crs("EPSG:4326").geometry.simplify(p.simplify_derajat, preserve_topology=True).to_crs(grid["crs"]) \
         if p.simplify_derajat else out.geometry

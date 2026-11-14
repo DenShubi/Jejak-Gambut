@@ -110,11 +110,11 @@
     <div class="small" id="dates"></div>
     <div class="bar" id="stack"></div>
     <div class="row"><span><span class="chip" style="background:var(--c1)"></span>Seen by VIIRS (confirmed)</span><b id="k1">–</b></div>
-    <div class="row"><span><span class="chip" style="background:var(--c2)"></span>Hidden under smoke (candidate)</span><b id="k2">–</b></div>
-    <div class="row"><span><span class="chip" style="background:var(--c3)"></span>Non-fire / mechanical — verify</span><b id="k3">–</b></div>
+    <div class="row"><span><span class="chip" style="background:var(--c2)"></span>Hidden from VIIRS (candidate)</span><b id="k2">–</b></div>
+    <div class="row"><span><span class="chip" style="background:var(--c3)"></span>Canopy loss, no fire evidence — verify</span><b id="k3">–</b></div>
   </div>
   <div class="kpis">
-    <div class="kpi"><div class="v" id="kBlind">–</div><div class="l">of fire-scar area had <b>no</b> VIIRS hotspot — thermal blindness under smoke</div></div>
+    <div class="kpi"><div class="v" id="kBlind">–</div><div class="l" id="kBlindL">of fire-scar area had <b>no</b> VIIRS hotspot on it (thermal blindness)</div></div>
     <div class="kpi"><div class="v" id="kComb">–</div><div class="l">fire impact: confirmed + hidden under smoke</div></div>
     <div class="kpi"><div class="v" id="kDir">–</div><div class="l">dominant spread direction (area-weighted)</div></div>
     <div class="kpi"><div class="v" id="kVal">–</div><div class="l" id="kValL">of peat hotspots fall inside a detected scar</div></div>
@@ -147,8 +147,8 @@
   <h2>How it works</h2>
   <p class="small">NISAR GCOV <b>HV</b> and <b>HH</b> (pre and post, same track and frame) are speckle-filtered in linear power, then converted to dB. Inside mapped peat units only, a 3-channel change tensor (−ΔHV, ΔHH, −ΔHV/HH) is segmented into <b>SLIC superpixels</b>; a <b>Multi-Otsu</b> threshold on superpixel ΔHV separates canopy loss from stable forest. Each scar is then labelled:
   <b style="color:var(--c1)">confirmed</b> — a nominal/high VIIRS hotspot within 375 m;
-  <b style="color:var(--c2)">hidden under smoke</b> — no hotspot, HV dropped while HH held (HV/HH ratio fell &gt; 1 dB) and the shape is organic (rectangularity &lt; 0.78);
-  <b style="color:var(--c3)">verify</b> — no hotspot and either box-shaped (excavator clearing) or the ratio did not fall (e.g. flooding).
+  <b style="color:var(--c2)">hidden</b> — no hotspot on the scar, HV dropped while HH held (HV/HH ratio fell &gt; 1 dB), organic shape (rectangularity &lt; 0.78), <i>and</i> fire evidence nearby: a VIIRS fire within 3 km or dense smoke (AOD ≥ 1);
+  <b style="color:var(--c3)">verify</b> — everything else: box-shaped (excavator clearing), ratio unchanged (e.g. flooding), or canopy loss with no fire nearby and clean air (likely plantation harvest).
   Spread direction runs from the centroid of the earliest-day hotspots to the scar centroid; for smoke-hidden scars it is the scar's long axis (±180°).</p>
   <p class="small"><b>Limits.</b> Peat only, so totals are not comparable with national burned-area figures. “Hidden” scars are radar evidence, not proven fires. AOD is MERRA-2 reanalysis (≈50 km). No deep learning: VIIRS labels would make validation circular.</p>
   <p class="small" id="src"></p>
@@ -167,10 +167,11 @@
 const K = 'keluaran';
 const COL = { terkonfirmasi:'#c0392b', kandidat_tersembunyi:'#e67e22', perlu_verifikasi:'#2e8b8b' };
 const LABEL = { terkonfirmasi:'Confirmed — VIIRS hotspot within 375 m',
-                kandidat_tersembunyi:'Hidden under smoke — no hotspot, organic shape, HV/HH fell',
-                perlu_verifikasi:'Needs verification — box-shaped clearing or ratio unchanged' };
+                kandidat_tersembunyi:'Hidden — no hotspot on the scar, but fire nearby or dense smoke; organic shape, HV/HH fell',
+                perlu_verifikasi:'Needs verification — box-shaped, ratio unchanged, or no fire evidence nearby' };
 const REASON = { hotspot_375m:'VIIRS hotspot ≤ 375 m', rasio_turun_organik:'HV/HH fell, organic shape',
-                 bentuk_kotak:'box-shaped (mechanical clearing?)', rasio_tidak_turun:'HV/HH ratio unchanged (flood/clearing?)' };
+                 bentuk_kotak:'box-shaped (mechanical clearing?)', rasio_tidak_turun:'HV/HH ratio unchanged (flood/clearing?)',
+                 tanpa_konteks_api:'canopy loss, but no fire within 3 km and clean air (harvest/clearing?)' };
 const COMPASS = { 'Utara':'North','Timur Laut':'Northeast','Timur':'East','Tenggara':'Southeast','Selatan':'South','Barat Daya':'Southwest','Barat':'West','Barat Laut':'Northwest' };
 const isNum = v => v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v));
 const fmt = (v, d=0) => isNum(v) ? Number(v).toLocaleString('en-US', {maximumFractionDigits:d, minimumFractionDigits:0}) : '—';
@@ -311,6 +312,8 @@ function renderStats(kat) {
   const comb = isNum(s.dampak_kombinasi_asap_dan_hotspot_ha) ? s.dampak_kombinasi_asap_dan_hotspot_ha
              : (Number(s.terkonfirmasi_ha)||0) + (Number(s.kandidat_tersembunyi_ha)||0);
   $('kComb').textContent = ha(comb);
+  $('kBlindL').innerHTML = `of ${ha(comb)} fire-scar area had <b>no</b> VIIRS hotspot on it (thermal blindness)` +
+    (Number(comb) < 5000 ? ' — <b>small base, read with care</b>' : '');
   $('kDir').textContent = s.arah_rambatan_dampak_dominan
     ? `${en(s.arah_rambatan_dampak_dominan)}${isNum(s.arah_rambatan_dampak_dominan_derajat) ? ' ' + fmt(s.arah_rambatan_dampak_dominan_derajat) + '°' : ''}` : '—';
   $('kVal').textContent = isNum(s.validasi_hotspot_persen) ? fmt(s.validasi_hotspot_persen) + '%' : 'n/a';
@@ -417,7 +420,7 @@ function selectScar(p, lngLat) {
     ['HV change', isNum(p.delta_hv_db) ? fmt(p.delta_hv_db, 1) + ' dB' : '—'], ['HV/HH ratio change', isNum(p.delta_rasio_db) ? fmt(p.delta_rasio_db, 1) + ' dB' : '—'],
     ['Rectangularity', isNum(p.cv_rectangularity) ? fmt(p.cv_rectangularity, 2) + (Number(p.cv_rectangularity) >= 0.78 ? ' (box-like)' : ' (organic)') : '—'],
     ['Smoke load (AOD)', fmt(p.muatan_asap_aod, 2)], ['Mean fire power (FRP)', isNum(p.rerata_frp_mw) ? fmt(p.rerata_frp_mw, 1) + ' MW' : '—'],
-    ['Hotspots in 375 m', fmt(p.jumlah_hotspot)], ['Why this class', esc(REASON[p.alasan_kategori] || p.alasan_kategori || '—')] ];
+    ['Hotspots in 375 m', fmt(p.jumlah_hotspot)], ['VIIRS fires within 3 km', fmt(p.hotspot_dalam_3km)], ['Why this class', esc(REASON[p.alasan_kategori] || p.alasan_kategori || '—')] ];
   $('dl').innerHTML = rows.map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('');
   const hv = drawScarChart(p.id);
   $('play').onclick = () => play(hv);

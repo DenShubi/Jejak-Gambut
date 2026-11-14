@@ -1,0 +1,79 @@
+{
+ "total_ha": 22012.16,
+ "terkonfirmasi_ha": 20565.12,
+ "kandidat_tersembunyi_ha": 628.48,
+ "perlu_verifikasi_ha": 818.56,
+ "dampak_kombinasi_asap_dan_hotspot_ha": 21193.6,
+ "rasio_kebutaan_termal_akibat_asap_persen": 2.965,
+ "persen_luput_di_bawah_asap_pekat": null,
+ "validasi_hotspot_persen": 48.6,
+ "arah_rambatan_dampak_dominan": "Barat Laut",
+ "arah_rambatan_dampak_dominan_derajat": 304.926,
+ "ambang_multiotsu_db": -3.211,
+ "ambang_dipakai_db": -3.211,
+ "sumber_ambang": "multiotsu",
+ "ambang_multiotsu_semua_db": [
+  -3.211,
+  -1.258
+ ],
+ "jumlah_superpixel": 28168,
+ "jumlah_hotspot": 3465,
+ "jumlah_poligon": 390,
+ "rerata_aod": 0.201,
+ "ambang_aod_pekat": 1.0,
+ "kuadran_asap_hotspot": {
+  "asap_pekat_ada_hotspot": {
+   "jumlah_poligon": 0,
+   "ha": 0.0,
+   "rerata_minus_dhv_db": null
+  },
+  "asap_pekat_tanpa_hotspot": {
+   "jumlah_poligon": 0,
+   "ha": 0.0,
+   "rerata_minus_dhv_db": null
+  },
+  "asap_tipis_ada_hotspot": {
+   "jumlah_poligon": 291,
+   "ha": 20565.12,
+   "rerata_minus_dhv_db": 3.922
+  },
+  "asap_tipis_tanpa_hotspot": {
+   "jumlah_poligon": 99,
+   "ha": 1447.04,
+   "rerata_minus_dhv_db": 4.005
+  }
+ },
+ "luas_kumulatif_ha": [
+  0.0,
+  2207.36,
+  4199.04,
+  7752.32,
+  11962.88,
+  15840.64,
+  20028.16,
+  21585.28
+ ],
+ "per_kabupaten": [
+  {
+   "nama": "Merauke",
+   "ha": 19595.52,
+   "terkonfirmasi_ha": 18259.2,
+   "tertutup_asap_ha": 611.84,
+   "perlu_verifikasi_ha": 724.48
+  },
+  {
+   "nama": "Mappi",
+   "ha": 1579.94,
+   "terkonfirmasi_ha": 1479.46,
+   "tertutup_asap_ha": 6.4,
+   "perlu_verifikasi_ha": 94.08
+  },
+  {
+   "nama": "Boven Digoel",
+   "ha": 835.249,
+   "terkonfirmasi_ha": 825.009,
+   "tertutup_asap_ha": 10.24,
+   "perlu_verifikasi_ha": 0.0
+  }
+ ]
+}

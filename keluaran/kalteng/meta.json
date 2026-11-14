@@ -40,13 +40,16 @@
   "n_superpixel": 3500,
   "luas_superpixel_maks_ha": 10.0,
   "deteksi_multitemporal": true,
-  "kekompakan_slic": 0.3,
+  "kekompakan_slic": 0.1,
   "ambang_hv_db": null,
   "ambang_hv_maks_db": -1.8,
   "luas_min_ha": 1.0,
   "ambang_rasio_db": -1.0,
   "ambang_rectangularity": 0.78,
+  "luas_min_bentuk_ha": 10.0,
+  "min_superpixel_bentuk": 3,
   "buffer_hotspot_m": 375.0,
+  "radius_konteks_api_m": 3000.0,
   "confidence_hotspot": [
    "n",
    "h"

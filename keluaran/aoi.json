@@ -2,6 +2,27 @@
  "versi_kontrak": "3.0",
  "aoi": [
   {
+   "slug": "riau",
+   "nama": "Bengkalis-Siak-Pelalawan, Riau",
+   "bbox": [
+    101.5,
+    0.0,
+    103.0,
+    1.8
+   ],
+   "mode": "nisar",
+   "tanggal_pra": "2026-07-18",
+   "tanggal_pasca": "2026-09-16",
+   "total_ha": 36268.8,
+   "terkonfirmasi_ha": 329.6,
+   "kandidat_tersembunyi_ha": 1607.68,
+   "perlu_verifikasi_ha": 34331.52,
+   "rasio_kebutaan_termal_akibat_asap_persen": 82.986,
+   "arah_rambatan_dampak_dominan": "Timur Laut",
+   "validasi_hotspot_persen": 26.328,
+   "data_sintetis": false
+  },
+  {
    "slug": "kalteng",
    "nama": "Sebangau-Pulang Pisau, Kalteng",
    "bbox": [
@@ -13,13 +34,34 @@
    "mode": "nisar",
    "tanggal_pra": "2026-07-24",
    "tanggal_pasca": "2026-10-28",
-   "total_ha": 76716.8,
-   "terkonfirmasi_ha": 69064.32,
-   "kandidat_tersembunyi_ha": 892.16,
-   "perlu_verifikasi_ha": 6760.32,
-   "rasio_kebutaan_termal_akibat_asap_persen": 1.275,
+   "total_ha": 82816.64,
+   "terkonfirmasi_ha": 74178.56,
+   "kandidat_tersembunyi_ha": 1196.8,
+   "perlu_verifikasi_ha": 7441.28,
+   "rasio_kebutaan_termal_akibat_asap_persen": 1.588,
    "arah_rambatan_dampak_dominan": "Barat Laut",
-   "validasi_hotspot_persen": 39.924,
+   "validasi_hotspot_persen": 43.234,
+   "data_sintetis": false
+  },
+  {
+   "slug": "merauke",
+   "nama": "Merauke, Papua Selatan",
+   "bbox": [
+    139.3,
+    -8.6,
+    140.8,
+    -7.0
+   ],
+   "mode": "nisar",
+   "tanggal_pra": "2026-07-16",
+   "tanggal_pasca": "2026-11-01",
+   "total_ha": 22012.16,
+   "terkonfirmasi_ha": 20565.12,
+   "kandidat_tersembunyi_ha": 628.48,
+   "perlu_verifikasi_ha": 818.56,
+   "rasio_kebutaan_termal_akibat_asap_persen": 2.965,
+   "arah_rambatan_dampak_dominan": "Barat Laut",
+   "validasi_hotspot_persen": 48.6,
    "data_sintetis": false
   }
  ]

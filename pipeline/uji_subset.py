@@ -81,7 +81,7 @@ hasil = jb.proses(
     hv_pra=h["pra"]["HVHV"], hv_pasca=h["pasca"]["HVHV"],
     hh_pra=h["pra"]["HHHH"], hh_pasca=h["pasca"]["HHHH"],
     khg=f"{SRC}/khg.geojson", hotspot_csv=f"{SRC}/hotspot.csv",
-    kabupaten=f"{SRC}/kab.geojson",
+    kabupaten=f"{SRC}/kab.geojson", aod_tif=f"{SRC}/aod.tif",
     folder_keluaran=f"{OUT}/keluaran/riau", folder_olahan=f"{OUT}/olahan", data_sintetis=True,
 )
 t = gpd.read_file(f"{OUT}/keluaran/riau/terbakar.geojson")
