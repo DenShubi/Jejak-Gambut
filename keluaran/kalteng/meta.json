@@ -1,0 +1,89 @@
+{
+ "versi_kontrak": "3.0",
+ "mode": "sintetis",
+ "data_sintetis": true,
+ "aoi_nama": "Pulang Pisau, Central Kalimantan (SYNTHETIC)",
+ "aoi_bbox": [
+  113.854,
+  -2.463,
+  114.113,
+  -2.204
+ ],
+ "tanggal_pra": "2026-07-04",
+ "tanggal_pasca": "2026-10-12",
+ "tanggal_deret": [
+  "2026-07-04",
+  "2026-07-28",
+  "2026-08-21",
+  "2026-09-14",
+  "2026-10-12"
+ ],
+ "produk": "NISAR_L2_GCOV_PROVISIONAL_V1",
+ "polarisasi": [
+  "HV",
+  "HH"
+ ],
+ "granule_pra": "",
+ "granule_pasca": "",
+ "sumber_aod": "sintetis",
+ "ukuran_piksel_m": 20.0,
+ "crs_olah": "EPSG:32749",
+ "deteksi_dibatasi_gambut": true,
+ "metode": "SLIC superpixel (KHG) + Multi-Otsu 3 kelas + rectangularity + hotspot VIIRS n/h <= 375 m",
+ "parameter": {
+  "resolusi_m": 0.0,
+  "ukuran_filter": 5,
+  "n_superpixel": 3500,
+  "luas_superpixel_maks_ha": 50.0,
+  "kekompakan_slic": 0.3,
+  "ambang_hv_db": null,
+  "ambang_hv_maks_db": -1.8,
+  "luas_min_ha": 1.0,
+  "ambang_rasio_db": -1.0,
+  "ambang_rectangularity": 0.78,
+  "buffer_hotspot_m": 375.0,
+  "confidence_hotspot": [
+   "n",
+   "h"
+  ],
+  "ambang_aod_pekat": 1.0,
+  "simplify_derajat": 0.0,
+  "alpha_png": 0.8,
+  "sembunyikan_png_di_bawah_db": 1.5,
+  "tampilkan_png_luar_gambut": false
+ },
+ "png_bounds": [
+  [
+   113.853,
+   -2.203
+  ],
+  [
+   114.113,
+   -2.203
+  ],
+  [
+   114.113,
+   -2.464
+  ],
+  [
+   113.853,
+   -2.464
+  ]
+ ],
+ "png": {
+  "perubahan": "perubahan.png",
+  "hv_pra": "hv_pra.png",
+  "hv_pasca": "hv_pasca.png"
+ },
+ "berkas": [
+  "terbakar.geojson",
+  "arah_rambatan.geojson",
+  "gambut.geojson",
+  "hotspot.geojson",
+  "statistik.json",
+  "deret_waktu.json",
+  "perubahan.png",
+  "hv_pra.png",
+  "hv_pasca.png"
+ ]
+}

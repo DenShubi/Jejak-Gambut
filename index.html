@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jejak Bara — Peat fire scars through the smoke, with NISAR</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3E%3Ccircle cx=%278%27 cy=%278%27 r=%277%27 fill=%27%23c0392b%27/%3E%3C/svg%3E">
+<meta name="description" content="NISAR L-band radar maps 2026 Indonesian peat fire scars hidden under smoke, tracks their spread and separates fire from mechanical clearing.">
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<style>
+  :root { --ink:#17181a; --muted:#5f6368; --line:#e2e3e6; --bg:#f7f7f8; --card:#fff;
+          --c1:#c0392b; --c2:#e67e22; --c3:#2e8b8b; --peat:#2e7d32; --accent:#17181a; }
+  * { box-sizing:border-box; }
+  html, body { height:100%; }
+  body { margin:0; font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; color:var(--ink); background:var(--bg); }
+  #app { display:grid; grid-template-columns:390px 1fr; height:100vh; }
+  aside { overflow-y:auto; border-right:1px solid var(--line); background:var(--bg); padding:18px 18px 40px; }
+  #mapwrap { position:relative; }
+  #map { position:absolute; inset:0; }
+  h1 { font-size:22px; margin:0; letter-spacing:-.01em; }
+  h2 { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:22px 0 8px; font-weight:650; }
+  .lead { color:var(--muted); margin:2px 0 10px; }
+  .badge { display:inline-block; font-size:11px; font-weight:700; letter-spacing:.05em; padding:3px 8px; border-radius:999px; margin-right:4px; }
+  .b-demo { background:#ffe8cc; color:#8a4b00; border:1px solid #f5b56a; }
+  .b-real { background:#e3f5e8; color:#1b6b33; border:1px solid #9fd7ae; }
+  .b-alt  { background:#e8eefc; color:#24459b; border:1px solid #a9bcf0; }
+  .warn { background:#fff4e5; border:1px solid #f5c27a; padding:8px 10px; border-radius:8px; margin:10px 0; font-size:13px; }
+  select { width:100%; padding:7px; border:1px solid var(--line); border-radius:8px; background:#fff; font:inherit; }
+  .seg { display:grid; grid-template-columns:repeat(4,1fr); gap:4px; background:#eceef0; padding:3px; border-radius:9px; }
+  .seg button { padding:7px 2px; border:0; background:transparent; border-radius:7px; cursor:pointer; font:inherit; font-size:12.5px; color:var(--ink); }
+  .seg button.on { background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.12); font-weight:650; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px; }
+  .big { font-size:32px; font-weight:700; letter-spacing:-.02em; line-height:1.1; font-variant-numeric:tabular-nums; }
+  .row { display:flex; justify-content:space-between; align-items:center; padding:3px 0; gap:8px; }
+  .row b { font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .chip { display:inline-block; width:11px; height:11px; border-radius:3px; margin-right:7px; vertical-align:-1px; }
+  .bar { display:flex; height:12px; border-radius:6px; overflow:hidden; margin:10px 0 6px; background:#eee; }
+  .bar span { display:block; height:100%; }
+  .kpis { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px; }
+  .kpi { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:9px 10px; }
+  .kpi .v { font-size:20px; font-weight:700; font-variant-numeric:tabular-nums; }
+  .kpi .l { font-size:11.5px; color:var(--muted); line-height:1.3; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { text-align:right; font-weight:600; color:var(--muted); font-size:11px; padding:2px 0 4px; } th:first-child { text-align:left; }
+  td { padding:4px 0; border-top:1px solid var(--line); } td.n { text-align:right; font-variant-numeric:tabular-nums; }
+  .small { font-size:12px; color:var(--muted); }
+  label.tog { display:flex; gap:7px; align-items:center; font-size:13px; padding:2px 0; cursor:pointer; }
+  .timeline { display:flex; gap:8px; align-items:center; }
+  .timeline input[type=range] { flex:1; accent-color:var(--ink); }
+  .btn { padding:6px 11px; border:1px solid var(--ink); background:#fff; border-radius:8px; cursor:pointer; font:inherit; font-size:13px; }
+  .btn:hover { background:var(--ink); color:#fff; }
+  #tdate { font-weight:700; font-variant-numeric:tabular-nums; min-width:92px; text-align:right; }
+  #detail { display:none; }
+  #detail .ttl { font-weight:700; margin-bottom:4px; }
+  dl { display:grid; grid-template-columns:auto 1fr; gap:2px 10px; margin:6px 0; font-size:13px; }
+  dt { color:var(--muted); } dd { margin:0; text-align:right; font-variant-numeric:tabular-nums; }
+  svg text { font-family:inherit; }
+  .legend { position:absolute; left:10px; bottom:28px; background:rgba(255,255,255,.94); border:1px solid var(--line); border-radius:10px; padding:8px 10px; font-size:12px; box-shadow:0 1px 4px rgba(0,0,0,.08); max-width:260px; }
+  .legend .grad { height:9px; border-radius:4px; background:linear-gradient(90deg,#b2182b,#ef8a62,#fddbc7,#f7f7f7,#d1e5f0,#67a9cf,#2166ac); margin:4px 0 2px; }
+  .legend .ends { display:flex; justify-content:space-between; color:var(--muted); font-size:11px; }
+  .maplibregl-popup-content { font:13px/1.4 system-ui,sans-serif; padding:10px 12px; border-radius:10px; }
+  .wv { font-size:12px; }
+  a { color:#1f5fbf; }
+  @media (max-width: 820px) {
+    #app { grid-template-columns:1fr; grid-template-rows:56vh auto; height:auto; }
+    #mapwrap { grid-row:1; height:56vh; }
+    aside { grid-row:2; border-right:0; border-top:1px solid var(--line); overflow:visible; }
+    .legend { display:none; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+<aside>
+  <h1>Jejak Bara</h1>
+  <p class="lead">Peat fire scars mapped <i>through the smoke</i> with NISAR L-band radar — Indonesia, 2026 fire season.</p>
+  <div id="badges"></div>
+  <div id="demowarn" class="warn" style="display:none">⚠ <b>DEMO DATA.</b> These numbers come from synthetic test scenes, not from NISAR. Do not quote them.</div>
+
+  <h2>Area</h2>
+  <select id="aoi" aria-label="Area of interest"></select>
+
+  <h2>What you see</h2>
+  <div class="seg" id="view" role="tablist">
+    <button data-v="optical" title="NASA VIIRS true colour on the timeline date">Optical</button>
+    <button data-v="pre" title="NISAR HV backscatter, pre-fire pass">Radar before</button>
+    <button data-v="post" title="NISAR HV backscatter, post-fire pass">Radar after</button>
+    <button data-v="change" class="on" title="HV change post − pre (dB)">Change</button>
+  </div>
+  <div style="margin-top:8px">
+    <label class="tog"><input type="checkbox" id="tScars" checked> Burn scars (3 confidence classes)</label>
+    <label class="tog"><input type="checkbox" id="tArrows" checked> Spread direction from first ignition</label>
+    <label class="tog"><input type="checkbox" id="tHot" checked> VIIRS hotspots (nominal/high confidence)</label>
+    <label class="tog"><input type="checkbox" id="tPeat" checked> Peat hydrological units (KHG)</label>
+  </div>
+
+  <h2>Timeline</h2>
+  <div class="timeline">
+    <button class="btn" id="playT" aria-label="Play timeline">▶</button>
+    <input type="range" id="slider" min="0" max="1" value="1" step="1" aria-label="Date">
+    <span id="tdate">–</span>
+  </div>
+  <div class="small" id="tinfo">Scars appear on their first VIIRS ignition date, or — if smoke hid them — on the first NISAR pass that saw them.</div>
+  <div class="wv" style="margin-top:4px"><a id="wvlink" href="#" target="_blank" rel="noopener">Open this day in NASA Worldview ↗</a></div>
+
+  <h2>Burned peat detected by NISAR</h2>
+  <div class="card">
+    <div class="big" id="total">–</div>
+    <div class="small" id="dates"></div>
+    <div class="bar" id="stack"></div>
+    <div class="row"><span><span class="chip" style="background:var(--c1)"></span>Seen by VIIRS (confirmed)</span><b id="k1">–</b></div>
+    <div class="row"><span><span class="chip" style="background:var(--c2)"></span>Hidden under smoke (candidate)</span><b id="k2">–</b></div>
+    <div class="row"><span><span class="chip" style="background:var(--c3)"></span>Non-fire / mechanical — verify</span><b id="k3">–</b></div>
+  </div>
+  <div class="kpis">
+    <div class="kpi"><div class="v" id="kBlind">–</div><div class="l">of fire-scar area had <b>no</b> VIIRS hotspot — thermal blindness under smoke</div></div>
+    <div class="kpi"><div class="v" id="kComb">–</div><div class="l">fire impact: confirmed + hidden under smoke</div></div>
+    <div class="kpi"><div class="v" id="kDir">–</div><div class="l">dominant spread direction (area-weighted)</div></div>
+    <div class="kpi"><div class="v" id="kVal">–</div><div class="l" id="kValL">of peat hotspots fall inside a detected scar</div></div>
+  </div>
+
+  <h2>Burn scar growth, every NISAR pass</h2>
+  <div class="card"><svg id="growth" width="100%" height="160" viewBox="0 0 350 160" role="img" aria-label="Cumulative burned area by NISAR pass"></svg></div>
+
+  <div id="quadWrap">
+    <h2>Smoke load vs. hotspots</h2>
+    <div class="card">
+      <svg id="quad" width="100%" height="190" viewBox="0 0 350 190" role="img" aria-label="Aerosol optical depth versus hotspot density per scar"></svg>
+      <div class="small" id="quadTxt"></div>
+    </div>
+  </div>
+
+  <h2>By regency (exact geometric split)</h2>
+  <table id="kab"></table>
+
+  <h2>Selected scar</h2>
+  <div class="small" id="hint">Click a scar on the map.</div>
+  <div id="detail" class="card">
+    <div class="ttl" id="dttl"></div>
+    <dl id="dl"></dl>
+    <svg id="chart" width="100%" height="150" viewBox="0 0 350 150" role="img" aria-label="Backscatter and burned area over time"></svg>
+    <button class="btn" id="play">▶ Listen to this scar</button>
+    <div class="small">Pitch follows HV backscatter, one note per 12-day NISAR pass.</div>
+  </div>
+
+  <h2>How it works</h2>
+  <p class="small">NISAR GCOV <b>HV</b> and <b>HH</b> (pre and post, same track and frame) are speckle-filtered in linear power, then converted to dB. Inside mapped peat units only, a 3-channel change tensor (−ΔHV, ΔHH, −ΔHV/HH) is segmented into <b>SLIC superpixels</b>; a <b>Multi-Otsu</b> threshold on superpixel ΔHV separates canopy loss from stable forest. Each scar is then labelled:
+  <b style="color:var(--c1)">confirmed</b> — a nominal/high VIIRS hotspot within 375 m;
+  <b style="color:var(--c2)">hidden under smoke</b> — no hotspot, HV dropped while HH held (HV/HH ratio fell &gt; 1 dB) and the shape is organic (rectangularity &lt; 0.78);
+  <b style="color:var(--c3)">verify</b> — no hotspot and either box-shaped (excavator clearing) or the ratio did not fall (e.g. flooding).
+  Spread direction runs from the centroid of the earliest-day hotspots to the scar centroid; for smoke-hidden scars it is the scar's long axis (±180°).</p>
+  <p class="small"><b>Limits.</b> Peat only, so totals are not comparable with national burned-area figures. “Hidden” scars are radar evidence, not proven fires. AOD is MERRA-2 reanalysis (≈50 km). No deep learning: VIIRS labels would make validation circular.</p>
+  <p class="small" id="src"></p>
+</aside>
+<div id="mapwrap">
+  <div id="map"></div>
+  <div class="legend" id="legend">
+    <div id="legChange"><b>HV change (dB)</b><div class="grad"></div><div class="ends"><span>−5 loss</span><span>0</span><span>+5 gain</span></div></div>
+    <div style="margin-top:6px"><span class="chip" style="background:var(--c1)"></span>confirmed&nbsp; <span class="chip" style="background:var(--c2)"></span>hidden&nbsp; <span class="chip" style="background:var(--c3)"></span>verify</div>
+    <div style="margin-top:3px">→ spread from ignition&nbsp; ┅ long axis (smoke)</div>
+  </div>
+</div>
+</div>
+
+<script>
+const K = 'keluaran';
+const COL = { terkonfirmasi:'#c0392b', kandidat_tersembunyi:'#e67e22', perlu_verifikasi:'#2e8b8b' };
+const LABEL = { terkonfirmasi:'Confirmed — VIIRS hotspot within 375 m',
+                kandidat_tersembunyi:'Hidden under smoke — no hotspot, organic shape, HV/HH fell',
+                perlu_verifikasi:'Needs verification — box-shaped clearing or ratio unchanged' };
+const REASON = { hotspot_375m:'VIIRS hotspot ≤ 375 m', rasio_turun_organik:'HV/HH fell, organic shape',
+                 bentuk_kotak:'box-shaped (mechanical clearing?)', rasio_tidak_turun:'HV/HH ratio unchanged (flood/clearing?)' };
+const COMPASS = { 'Utara':'North','Timur Laut':'Northeast','Timur':'East','Tenggara':'Southeast','Selatan':'South','Barat Daya':'Southwest','Barat':'West','Barat Laut':'Northwest' };
+const isNum = v => v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v));
+const fmt = (v, d=0) => isNum(v) ? Number(v).toLocaleString('en-US', {maximumFractionDigits:d, minimumFractionDigits:0}) : '—';
+const ha = (v, d=0) => isNum(v) ? fmt(v, d) + ' ha' : '—';
+const en = c => c ? (COMPASS[c] || c) : null;
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '—').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+let meta = null, stat = null, series = null, scars = null, view = 'change', days = [], curDay = null, selId = null, playing = null;
+
+const map = new maplibregl.Map({
+  container: 'map',
+  style: { version: 8,
+    sources: { osm: { type:'raster', tiles:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], tileSize:256, maxzoom:19,
+                      attribution:'© OpenStreetMap contributors' } },
+    layers: [{ id:'osm', type:'raster', source:'osm', paint:{ 'raster-saturation':-0.6, 'raster-opacity':0.9 } }] },
+  center: [113, -2], zoom: 4, attributionControl: { compact: true }
+});
+map.addControl(new maplibregl.NavigationControl(), 'top-right');
+map.addControl(new maplibregl.ScaleControl(), 'bottom-right');
+
+const getJSON = async p => { const r = await fetch(p); if (!r.ok) throw new Error(p + ' ' + r.status); return r.json(); };
+const getOpt = async (p, fb) => { try { return await getJSON(p); } catch { return fb; } };
+const EMPTY = { type:'FeatureCollection', features:[] };
+
+function arrowImage() {
+  const s = 48, c = document.createElement('canvas'); c.width = c.height = s;
+  const g = c.getContext('2d');
+  g.fillStyle = '#111'; g.strokeStyle = '#fff'; g.lineWidth = 4; g.lineJoin = 'round';
+  g.beginPath(); g.moveTo(s/2, 4); g.lineTo(s-8, s-8); g.lineTo(s/2, s-16); g.lineTo(8, s-8); g.closePath();
+  g.stroke(); g.fill();
+  return g.getImageData(0, 0, s, s);
+}
+
+const LAYERS = ['optical','pre','post','change','peat','scars','scars-line','scars-sel','arrows-halo','arrows','arrows-axis','arrow-heads','hot'];
+const SOURCES = ['optical','pre','post','change','peat','scars','arrows','arrow-heads','hot'];
+function clearAoi() {
+  for (const id of LAYERS) if (map.getLayer(id)) map.removeLayer(id);
+  for (const id of SOURCES) if (map.getSource(id)) map.removeSource(id);
+}
+
+const gibsTiles = d => [`https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_NOAA20_CorrectedReflectance_TrueColor/default/${d}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg`];
+function setOptical(d) {
+  const before = map.getLayer('pre') ? 'pre' : (map.getLayer('peat') ? 'peat' : undefined);
+  if (map.getLayer('optical')) map.removeLayer('optical');
+  if (map.getSource('optical')) map.removeSource('optical');
+  map.addSource('optical', { type:'raster', tiles: gibsTiles(d), tileSize:256, maxzoom:9, attribution:'NASA GIBS / VIIRS NOAA-20' });
+  map.addLayer({ id:'optical', type:'raster', source:'optical', layout:{ visibility: view==='optical'?'visible':'none' } }, before);
+}
+function worldview(d) {
+  const b = meta.aoi_bbox;
+  return `https://worldview.earthdata.nasa.gov/?v=${b[0]},${b[1]},${b[2]},${b[3]}&t=${d}-T06:00:00Z` +
+         `&l=Reference_Labels_15m,Coastlines_15m,VIIRS_NOAA20_Thermal_Anomalies_375m_All,VIIRS_NOAA20_CorrectedReflectance_TrueColor`;
+}
+
+function dayList(a, b) {
+  const out = []; let t = Date.parse(a + 'T00:00:00Z'); const e = Date.parse(b + 'T00:00:00Z');
+  while (t <= e) { out.push(new Date(t).toISOString().slice(0, 10)); t += 86400000; }
+  return out;
+}
+
+async function loadAoi(slug) {
+  stopPlay(); clearAoi(); selId = null;
+  meta = await getJSON(`${K}/${slug}/meta.json`);
+  let peat, hot, arrows;
+  [stat, scars, peat, hot, arrows, series] = await Promise.all([
+    getJSON(`${K}/${slug}/statistik.json`), getJSON(`${K}/${slug}/terbakar.geojson`),
+    getOpt(`${K}/${slug}/gambut.geojson`, EMPTY), getOpt(`${K}/${slug}/hotspot.geojson`, EMPTY),
+    getOpt(`${K}/${slug}/arah_rambatan.geojson`, EMPTY), getOpt(`${K}/${slug}/deret_waktu.json`, { tanggal:[], hv_db:{}, hh_db:{} }) ]);
+  const kat = Object.fromEntries(scars.features.map(f => [f.properties.id, f.properties.kategori]));
+
+  const c = meta.png_bounds, png = meta.png || { perubahan:'perubahan.png' };
+  for (const [id, f] of [['pre', png.hv_pra], ['post', png.hv_pasca], ['change', png.perubahan]]) {
+    if (!f || !c) continue;
+    map.addSource(id, { type:'image', url:`${K}/${slug}/${f}`, coordinates:c });
+    map.addLayer({ id, type:'raster', source:id, paint:{ 'raster-fade-duration':0 } });
+  }
+  map.addSource('peat', { type:'geojson', data:peat });
+  map.addLayer({ id:'peat', type:'line', source:'peat', paint:{ 'line-color':'#2e7d32', 'line-width':1.3, 'line-dasharray':[2,2] } });
+  const colorExpr = ['match',['get','kategori'],'terkonfirmasi',COL.terkonfirmasi,'kandidat_tersembunyi',COL.kandidat_tersembunyi,COL.perlu_verifikasi];
+  map.addSource('scars', { type:'geojson', data:scars, promoteId:'id' });
+  map.addLayer({ id:'scars', type:'fill', source:'scars', paint:{ 'fill-color':colorExpr, 'fill-opacity':0.38 } });
+  map.addLayer({ id:'scars-line', type:'line', source:'scars', paint:{ 'line-color':colorExpr, 'line-width':2 } });
+  map.addLayer({ id:'scars-sel', type:'line', source:'scars', paint:{ 'line-color':'#111', 'line-width':3.5 }, filter:['==',['get','id'],-1] });
+
+  arrows.features.forEach(f => { f.properties.kategori = f.properties.kategori || kat[f.properties.id]; });
+  map.addSource('arrows', { type:'geojson', data:arrows });
+  map.addLayer({ id:'arrows-halo', type:'line', source:'arrows', filter:['==',['get','metode'],'titik_api'],
+    layout:{ 'line-cap':'round' }, paint:{ 'line-color':'#fff', 'line-width':7, 'line-opacity':0.9 } });
+  map.addLayer({ id:'arrows', type:'line', source:'arrows', filter:['==',['get','metode'],'titik_api'],
+    layout:{ 'line-cap':'round' }, paint:{ 'line-color':'#111', 'line-width':3 } });
+  map.addLayer({ id:'arrows-axis', type:'line', source:'arrows', filter:['!=',['get','metode'],'titik_api'],
+    paint:{ 'line-color':'#111', 'line-width':2, 'line-dasharray':[1.5,1.5], 'line-opacity':0.75 } });
+  const heads = { type:'FeatureCollection', features: arrows.features
+    .filter(f => f.properties.metode === 'titik_api' && f.geometry && f.geometry.coordinates.length > 1)
+    .map(f => ({ type:'Feature', properties:{ id:f.properties.id, rot:Number(f.properties.arah_dampak_derajat) || 0 },
+                 geometry:{ type:'Point', coordinates:f.geometry.coordinates[f.geometry.coordinates.length - 1] } })) };
+  map.addSource('arrow-heads', { type:'geojson', data:heads });
+  map.addLayer({ id:'arrow-heads', type:'symbol', source:'arrow-heads',
+    layout:{ 'icon-image':'arrow', 'icon-size':['interpolate',['linear'],['zoom'],8,0.5,13,0.9], 'icon-rotate':['get','rot'], 'icon-rotation-alignment':'map',
+             'icon-allow-overlap':true, 'icon-ignore-placement':true } });
+
+  map.addSource('hot', { type:'geojson', data:hot });
+  map.addLayer({ id:'hot', type:'circle', source:'hot',
+    paint:{ 'circle-radius':['interpolate',['linear'],['zoom'],7,2.5,12,5],
+            'circle-color':['case',['==',['get','dalam_deteksi'],true],'#ffcc00','#ffffff'],
+            'circle-stroke-color':'#111', 'circle-stroke-width':1 } });
+
+  days = dayList(meta.tanggal_pra, meta.tanggal_pasca);
+  $('slider').max = Math.max(days.length - 1, 0); $('slider').value = days.length - 1;
+  curDay = days[days.length - 1];
+
+  const b = meta.aoi_bbox; map.fitBounds([[b[0], b[1]], [b[2], b[3]]], { padding:30, duration:600 });
+  const mode = meta.mode || (meta.data_sintetis ? 'sintetis' : 'nisar');
+  const demo = meta.data_sintetis || mode === 'sintetis';
+  $('badges').innerHTML = demo ? '<span class="badge b-demo">DEMO DATA</span>'
+    : mode === 'nisar' ? '<span class="badge b-real">NISAR L-BAND · REAL DATA</span>'
+    : `<span class="badge b-alt">${esc(mode.toUpperCase())} FALLBACK</span>`;
+  $('demowarn').style.display = demo ? 'block' : 'none';
+  renderStats(kat);
+  $('src').innerHTML = `Data: ${esc(meta.produk)} (${(meta.polarisasi||[]).join('+')}), NASA/ASF DAAC · VIIRS 375 m active fire, NASA FIRMS` +
+    (meta.sumber_aod ? ` · AOD: ${esc(meta.sumber_aod)}, NASA GES DISC` : '') + ` · KHG peat units (KLHK) · optical: NASA GIBS.` +
+    (meta.granule_pra ? `<br>Granules: ${esc(meta.granule_pra)} → ${esc(meta.granule_pasca)}` : '') +
+    `<br>Grid ${fmt(meta.ukuran_piksel_m)} m, ${esc(meta.crs_olah)} · contract v${esc(meta.versi_kontrak)}`;
+  $('detail').style.display = 'none'; $('hint').style.display = 'block';
+  applyView(); applyToggles(); setDay(days.length - 1);
+}
+
+function renderStats(kat) {
+  const s = stat;
+  $('total').textContent = ha(s.total_ha);
+  $('dates').textContent = `NISAR ${meta.tanggal_pra} → ${meta.tanggal_pasca} · ${fmt(s.jumlah_poligon)} scars · ${fmt((meta.tanggal_deret||[]).length || 2)} passes`;
+  const parts = [['terkonfirmasi_ha', COL.terkonfirmasi], ['kandidat_tersembunyi_ha', COL.kandidat_tersembunyi], ['perlu_verifikasi_ha', COL.perlu_verifikasi]];
+  const tot = Number(s.total_ha) || 0;
+  $('stack').innerHTML = tot ? parts.map(([k, c]) => `<span style="width:${(Number(s[k])||0)/tot*100}%;background:${c}" title="${ha(s[k])}"></span>`).join('') : '';
+  $('k1').textContent = ha(s.terkonfirmasi_ha); $('k2').textContent = ha(s.kandidat_tersembunyi_ha); $('k3').textContent = ha(s.perlu_verifikasi_ha);
+  $('kBlind').textContent = isNum(s.rasio_kebutaan_termal_akibat_asap_persen) ? fmt(s.rasio_kebutaan_termal_akibat_asap_persen, 1) + '%' : '—';
+  const comb = isNum(s.dampak_kombinasi_asap_dan_hotspot_ha) ? s.dampak_kombinasi_asap_dan_hotspot_ha
+             : (Number(s.terkonfirmasi_ha)||0) + (Number(s.kandidat_tersembunyi_ha)||0);
+  $('kComb').textContent = ha(comb);
+  $('kDir').textContent = s.arah_rambatan_dampak_dominan
+    ? `${en(s.arah_rambatan_dampak_dominan)}${isNum(s.arah_rambatan_dampak_dominan_derajat) ? ' ' + fmt(s.arah_rambatan_dampak_dominan_derajat) + '°' : ''}` : '—';
+  $('kVal').textContent = isNum(s.validasi_hotspot_persen) ? fmt(s.validasi_hotspot_persen) + '%' : 'n/a';
+  $('kValL').innerHTML = `of ${fmt(s.jumlah_hotspot)} peat hotspots fall inside a detected scar` +
+    (isNum(s.ambang_dipakai_db) ? ` · threshold ${fmt(s.ambang_dipakai_db, 2)} dB (${esc(s.sumber_ambang || 'Multi-Otsu')})` : '');
+  const rows = (s.per_kabupaten || []);
+  $('kab').innerHTML = `<tr><th>Regency</th><th>Total</th><th>Confirmed</th><th>Under smoke</th></tr>` +
+    (rows.length ? rows.map(r => `<tr><td>${esc(r.nama)}</td><td class="n">${fmt(r.ha)}</td><td class="n">${fmt(r.terkonfirmasi_ha)}</td><td class="n">${fmt(r.tertutup_asap_ha)}</td></tr>`).join('')
+                 : '<tr><td colspan="4" class="small">No regency data.</td></tr>');
+  drawGrowth(kat); drawQuad();
+}
+
+// ---------- charts ----------
+function axisY(lo, hi, Y, L, W, R, unit) {
+  const ticks = [lo, (lo + hi) / 2, hi];
+  return ticks.map(v => `<line x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}" stroke="#eee"/><text x="${L-4}" y="${Y(v)+3.5}" font-size="10" text-anchor="end" fill="#888">${fmt(v)}${unit||''}</text>`).join('');
+}
+function drawGrowth(kat) {
+  const svg = $('growth'), W = 350, H = 160, L = 46, R = 10, T = 12, B = 22, t = series.tanggal || [];
+  const lk = series.luas_kumulatif_ha;
+  if (!lk || t.length < 2) { svg.innerHTML = '<text x="10" y="80" font-size="12" fill="#888">Only two NISAR passes — no growth curve.</text>'; return; }
+  const sum = cat => t.map((_, i) => Object.entries(lk).reduce((a, [id, arr]) => a + ((!cat || kat[id] === cat) && isNum(arr[i]) ? Number(arr[i]) : 0), 0));
+  const lines = [['all', sum(null), '#17181a', 2.6], ['terkonfirmasi', sum('terkonfirmasi'), COL.terkonfirmasi, 2],
+                 ['kandidat_tersembunyi', sum('kandidat_tersembunyi'), COL.kandidat_tersembunyi, 2], ['perlu_verifikasi', sum('perlu_verifikasi'), COL.perlu_verifikasi, 2]];
+  const t0 = Date.parse(t[0]), t1 = Date.parse(t[t.length-1]);
+  const X = d => L + (Date.parse(d) - t0) / Math.max(t1 - t0, 1) * (W - L - R);
+  const hi = Math.max(1, ...lines[0][1]) * 1.08, Y = v => T + (hi - v) * (H - T - B) / hi;
+  const marker = curDay ? `<line x1="${X(curDay)}" x2="${X(curDay)}" y1="${T}" y2="${H-B}" stroke="#17181a" stroke-dasharray="3,3"/>` : '';
+  svg.innerHTML = axisY(0, hi / 1.08, Y, L, W, R, '') +
+    lines.map(([k, arr, c, w]) => `<polyline points="${arr.map((v, i) => `${X(t[i])},${Y(v)}`).join(' ')}" fill="none" stroke="${c}" stroke-width="${w}"/>` +
+      arr.map((v, i) => `<circle cx="${X(t[i])}" cy="${Y(v)}" r="${k==='all'?3:2}" fill="${c}"><title>${t[i]}: ${ha(v)}</title></circle>`).join('')).join('') + marker +
+    `<text x="${L}" y="${H-6}" font-size="10" fill="#888">${t[0]}</text><text x="${W-R}" y="${H-6}" font-size="10" fill="#888" text-anchor="end">${t[t.length-1]}</text>` +
+    `<text x="${L+4}" y="${T+9}" font-size="10" fill="#17181a">cumulative ha · ${t.length} passes</text>`;
+}
+function drawQuad() {
+  const feats = scars.features.filter(f => isNum(f.properties.muatan_asap_aod));
+  $('quadWrap').style.display = feats.length ? 'block' : 'none';
+  if (!feats.length) return;
+  const svg = $('quad'), W = 350, H = 190, L = 40, R = 10, T = 10, B = 30, thr = Number(stat.ambang_aod_pekat) || 1;
+  const xs = feats.map(f => Number(f.properties.muatan_asap_aod)), ys = feats.map(f => Math.log1p(Number(f.properties.kepadatan_hotspot_per_km2) || 0));
+  const xhi = Math.max(thr * 1.5, ...xs) * 1.1, yhi = Math.max(0.5, ...ys) * 1.15;
+  const X = v => L + v / xhi * (W - L - R), Y = v => T + (yhi - v) / yhi * (H - T - B);
+  svg.innerHTML =
+    `<rect x="${X(thr)}" y="${T}" width="${W-R-X(thr)}" height="${H-T-B}" fill="#fbeee6"/>` +
+    `<line x1="${X(thr)}" x2="${X(thr)}" y1="${T}" y2="${H-B}" stroke="#888" stroke-dasharray="4,3"/>` +
+    `<line x1="${L}" x2="${W-R}" y1="${H-B}" y2="${H-B}" stroke="#bbb"/><line x1="${L}" x2="${L}" y1="${T}" y2="${H-B}" stroke="#bbb"/>` +
+    feats.map((f, i) => `<circle cx="${X(xs[i])}" cy="${Y(ys[i])}" r="${Math.max(3, Math.min(14, Math.sqrt(f.properties.luas_ha||0)/2.2))}" fill="${COL[f.properties.kategori]}" fill-opacity=".7" stroke="#fff"><title>#${f.properties.id}: AOD ${fmt(xs[i],2)}, ${ha(f.properties.luas_ha)}</title></circle>`).join('') +
+    `<text x="${X(thr)+4}" y="${T+11}" font-size="10" fill="#8a4b00">dense smoke (AOD ≥ ${fmt(thr,1)})</text>` +
+    `<text x="${(L+W-R)/2}" y="${H-8}" font-size="10" fill="#888" text-anchor="middle">aerosol optical depth (smoke load)</text>` +
+    `<text x="12" y="${(T+H-B)/2}" font-size="10" fill="#888" text-anchor="middle" transform="rotate(-90 12 ${(T+H-B)/2})">hotspots / km²</text>`;
+  const q = stat.kuadran_asap_hotspot;
+  $('quadTxt').innerHTML = q ? `Under dense smoke: <b>${ha(q.asap_pekat_tanpa_hotspot?.ha)}</b> of scars had no hotspot vs <b>${ha(q.asap_pekat_ada_hotspot?.ha)}</b> with one.` +
+    (isNum(stat.persen_luput_di_bawah_asap_pekat) ? ` <b>${fmt(stat.persen_luput_di_bawah_asap_pekat)}%</b> of fire-scar area under dense smoke was missed by VIIRS.` : '') : '';
+}
+function drawScarChart(id) {
+  const svg = $('chart'), W = 350, H = 150, L = 34, R = 40, T = 12, B = 22, t = series.tanggal || [];
+  const hv = (series.hv_db || {})[String(id)] || [], hh = (series.hh_db || {})[String(id)] || [], ar = (series.luas_kumulatif_ha || {})[String(id)] || [];
+  const all = [...hv, ...hh].filter(isNum).map(Number);
+  if (!all.length || t.length < 1) { svg.innerHTML = '<text x="10" y="70" font-size="12" fill="#888">No time series for this scar.</text>'; return []; }
+  const lo = Math.floor(Math.min(...all)) - 1, hi = Math.ceil(Math.max(...all)) + 1;
+  const X = i => L + (t.length < 2 ? (W - L - R) / 2 : i * (W - L - R) / (t.length - 1));
+  const Y = v => T + (hi - v) * (H - T - B) / (hi - lo);
+  const ahi = Math.max(1, ...ar.filter(isNum).map(Number)) * 1.1, YA = v => T + (ahi - v) * (H - T - B) / ahi;
+  const path = (arr, Yf) => arr.map((v, i) => isNum(v) ? `${X(i)},${Yf(Number(v))}` : null).filter(Boolean).join(' ');
+  svg.innerHTML = axisY(lo, hi, Y, L, W, R, '') +
+    (ar.length ? `<polygon points="${X(0)},${H-B} ${path(ar, YA)} ${X(ar.length-1)},${H-B}" fill="#e67e22" fill-opacity=".12"/>` +
+                 `<text x="${W-R+4}" y="${YA(ahi/1.1)+4}" font-size="10" fill="#b25f12">${fmt(ahi/1.1)} ha</text>` : '') +
+    `<polyline points="${path(hh, Y)}" fill="none" stroke="#9aa5b1" stroke-width="2"/>` +
+    `<polyline points="${path(hv, Y)}" fill="none" stroke="#c0392b" stroke-width="2.5"/>` +
+    hv.map((v, i) => isNum(v) ? `<circle cx="${X(i)}" cy="${Y(v)}" r="3" fill="#c0392b"><title>${t[i]}: HV ${fmt(v,1)} dB</title></circle>` : '').join('') +
+    `<text x="${L}" y="${H-6}" font-size="10" fill="#888">${t[0]}</text><text x="${W-R}" y="${H-6}" font-size="10" fill="#888" text-anchor="end">${t[t.length-1]}</text>` +
+    `<text x="${L+4}" y="${T+9}" font-size="10"><tspan fill="#c0392b">HV</tspan> <tspan fill="#9aa5b1">HH</tspan> <tspan fill="#888">dB</tspan> <tspan fill="#b25f12">· burned ha</tspan></text>`;
+  return hv;
+}
+
+function play(values) {
+  const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+  const ctx = new AC(), v = values.filter(isNum).map(Number);
+  if (!v.length) return;
+  const lo = -25, hi = -5, step = 0.38;
+  v.forEach((db, i) => {
+    const f = 220 * Math.pow(2, 2 * Math.min(1, Math.max(0, (db - lo) / (hi - lo))));
+    const o = ctx.createOscillator(), g = ctx.createGain(), t0 = ctx.currentTime + i * step;
+    o.frequency.value = f; o.type = 'sine';
+    g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(0.25, t0 + 0.03); g.gain.linearRampToValueAtTime(0, t0 + step * 0.9);
+    o.connect(g).connect(ctx.destination); o.start(t0); o.stop(t0 + step);
+  });
+}
+
+// ---------- selection ----------
+function selectScar(p, lngLat) {
+  selId = p.id;
+  map.setFilter('scars-sel', ['==', ['get','id'], p.id]);
+  $('hint').style.display = 'none'; $('detail').style.display = 'block';
+  $('dttl').innerHTML = `<span style="color:${COL[p.kategori]}">#${p.id} · ${esc(LABEL[p.kategori] || p.kategori)}</span>`;
+  const axis = p.arah_dampak_metode && p.arah_dampak_metode !== 'titik_api';
+  const dir = isNum(p.arah_dampak_derajat) ? `${en(p.arah_dampak_kompas) || ''} ${fmt(p.arah_dampak_derajat)}°${axis ? ' (long axis, ±180°)' : ''}` : '—';
+  const ign = p.tgl_titik_bakar_mulai && p.tgl_titik_bakar_mulai !== 'Tertutup Asap' ? String(p.tgl_titik_bakar_mulai).slice(0,10) : 'Hidden by smoke';
+  const rows = [
+    ['Area', ha(p.luas_ha, 1)], ['Regency', esc(p.kabupaten_terdampak || p.kabupaten)],
+    ['First ignition (VIIRS)', esc(ign)], ['First seen by NISAR', esc(p.tgl_terdeteksi_nisar ? String(p.tgl_terdeteksi_nisar).slice(0,10) : '—')],
+    ['Spread direction', esc(dir)], ['Spread reach', isNum(p.jangkauan_rambatan_m) ? fmt(p.jangkauan_rambatan_m) + ' m' : '—'],
+    ['Expansion rate', isNum(p.laju_ekspansi_ha_per_hari) ? fmt(p.laju_ekspansi_ha_per_hari, 1) + ' ha/day' : '—'],
+    ['HV change', isNum(p.delta_hv_db) ? fmt(p.delta_hv_db, 1) + ' dB' : '—'], ['HV/HH ratio change', isNum(p.delta_rasio_db) ? fmt(p.delta_rasio_db, 1) + ' dB' : '—'],
+    ['Rectangularity', isNum(p.cv_rectangularity) ? fmt(p.cv_rectangularity, 2) + (Number(p.cv_rectangularity) >= 0.78 ? ' (box-like)' : ' (organic)') : '—'],
+    ['Smoke load (AOD)', fmt(p.muatan_asap_aod, 2)], ['Mean fire power (FRP)', isNum(p.rerata_frp_mw) ? fmt(p.rerata_frp_mw, 1) + ' MW' : '—'],
+    ['Hotspots in 375 m', fmt(p.jumlah_hotspot)], ['Why this class', esc(REASON[p.alasan_kategori] || p.alasan_kategori || '—')] ];
+  $('dl').innerHTML = rows.map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('');
+  const hv = drawScarChart(p.id);
+  $('play').onclick = () => play(hv);
+  if (lngLat) new maplibregl.Popup({ closeButton:true, maxWidth:'260px' }).setLngLat(lngLat)
+    .setHTML(`<b style="color:${COL[p.kategori]}">${esc(LABEL[p.kategori])}</b><br>${ha(p.luas_ha,1)} · ${esc(p.kabupaten)}<br>Spread: ${esc(dir)}<br>Ignition: ${esc(ign)} · AOD ${fmt(p.muatan_asap_aod,2)}`).addTo(map);
+}
+
+// ---------- view / toggles / timeline ----------
+function applyView() {
+  for (const id of ['optical','pre','post','change'])
+    if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', id === view ? 'visible' : 'none');
+  document.querySelectorAll('#view button').forEach(b => b.classList.toggle('on', b.dataset.v === view));
+  $('legChange').style.display = view === 'change' ? 'block' : 'none';
+  if (view === 'optical' && curDay) setOptical(curDay);
+}
+function applyToggles() {
+  const vis = on => on ? 'visible' : 'none';
+  for (const id of ['scars','scars-line','scars-sel']) if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', vis($('tScars').checked));
+  for (const id of ['arrows-halo','arrows','arrows-axis','arrow-heads']) if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', vis($('tArrows').checked));
+  if (map.getLayer('hot')) map.setLayoutProperty('hot', 'visibility', vis($('tHot').checked));
+  if (map.getLayer('peat')) map.setLayoutProperty('peat', 'visibility', vis($('tPeat').checked));
+}
+function visibleIds(d, last) {
+  return scars.features.filter(f => {
+    if (last) return true;
+    const p = f.properties, ig = p.tgl_titik_bakar_mulai, nd = p.tgl_terdeteksi_nisar;
+    return (ig && ig !== 'Tertutup Asap' && String(ig).slice(0,10) <= d) || (nd && String(nd).slice(0,10) <= d);
+  }).map(f => f.properties.id);
+}
+function setDay(i) {
+  if (!days.length) return;
+  i = Math.max(0, Math.min(days.length - 1, Number(i)));
+  curDay = days[i]; $('slider').value = i; $('tdate').textContent = curDay;
+  const last = i === days.length - 1;
+  const ids = visibleIds(curDay, last);
+  const f = ['in', ['get','id'], ['literal', ids]];
+  for (const id of ['scars','scars-line']) if (map.getLayer(id)) map.setFilter(id, f);
+  for (const id of ['arrows-halo','arrows']) if (map.getLayer(id)) map.setFilter(id, ['all', ['==',['get','metode'],'titik_api'], f]);
+  if (map.getLayer('arrows-axis')) map.setFilter('arrows-axis', ['all', ['!=',['get','metode'],'titik_api'], f]);
+  if (map.getLayer('arrow-heads')) map.setFilter('arrow-heads', f);
+  if (map.getLayer('hot')) map.setFilter('hot', ['<=', ['slice', ['to-string', ['get','acq_date']], 0, 10], curDay]);
+  if (view === 'optical') setOptical(curDay);
+  $('wvlink').href = worldview(curDay);
+  const shown = scars.features.filter(x => ids.includes(x.properties.id)).reduce((a, x) => a + (Number(x.properties.luas_ha) || 0), 0);
+  $('tinfo').textContent = `${ids.length} of ${scars.features.length} scars visible by ${curDay} (${ha(shown)}).`;
+  const kat = Object.fromEntries(scars.features.map(x => [x.properties.id, x.properties.kategori]));
+  drawGrowth(kat);
+}
+function stopPlay() { if (playing) { clearInterval(playing); playing = null; $('playT').textContent = '▶'; } }
+$('playT').onclick = () => {
+  if (playing) return stopPlay();
+  let i = Number($('slider').value); if (i >= days.length - 1) i = 0;
+  $('playT').textContent = '❚❚';
+  const stepDays = Math.max(1, Math.round(days.length / 60));
+  playing = setInterval(() => { i = Math.min(days.length - 1, i + stepDays); setDay(i); if (i >= days.length - 1) stopPlay(); }, 120);
+};
+$('slider').oninput = e => { stopPlay(); setDay(e.target.value); };
+
+map.on('click', 'scars', e => selectScar(e.features[0].properties, e.lngLat));
+map.on('mouseenter', 'scars', () => map.getCanvas().style.cursor = 'pointer');
+map.on('mouseleave', 'scars', () => map.getCanvas().style.cursor = '');
+document.querySelectorAll('#view button').forEach(b => b.onclick = () => { view = b.dataset.v; applyView(); });
+['tScars','tArrows','tHot','tPeat'].forEach(id => $(id).onchange = applyToggles);
+$('aoi').onchange = e => loadAoi(e.target.value).catch(showErr);
+function showErr(err) { $('hint').style.display = 'block'; $('hint').textContent = 'Could not load data: ' + err.message + '. Serve this folder over HTTP (python -m http.server), not file://.'; console.error(err); }
+
+map.on('load', async () => {
+  map.addImage('arrow', arrowImage(), { pixelRatio: 2 });
+  try {
+    const { aoi } = await getJSON(`${K}/aoi.json`);
+    $('aoi').innerHTML = aoi.map(a => `<option value="${esc(a.slug)}">${esc(a.nama)}${a.data_sintetis || a.mode === 'sintetis' ? ' — demo' : ''}</option>`).join('');
+    const want = new URLSearchParams(location.search).get('aoi');
+    const first = aoi.find(a => a.slug === want) || aoi[0];
+    $('aoi').value = first.slug;
+    await loadAoi(first.slug);
+  } catch (err) { showErr(err); }
+});
+</script>
+</body>
+</html>
