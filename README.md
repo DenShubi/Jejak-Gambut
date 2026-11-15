@@ -6,8 +6,10 @@ Peat burn-scar mapping for Indonesia's 2026 fire season from NISAR L-band GCOV.
 VIIRS reports fire *points*; this pipeline turns 12-day NISAR passes into mapped *hectares* per regency, with growth over time,
 spread direction, and a confidence class per scar.
 
-**App:** https://denshubi.github.io/Jejak-Gambut/ (`?aoi=kalteng|merauke|riau`)
-NASA Space Apps Challenge 2026 — *Dancing with the SARs* — Yogyakarta.
+**App:** https://denshubi.github.io/Tilas/ (`?aoi=kalteng|merauke|riau`, `&fires=heat|grid|dots`)
+**Code:** https://github.com/DenShubi/Tilas
+
+NASA Space Apps Challenge 2026, *Dancing with the SARs*, Yogyakarta.
 
 ## Results
 
@@ -38,6 +40,18 @@ Detection is restricted to mapped peat (KHG). Areas are computed in UTM.
 
 National figures (2.88 Mha Nusantara Atlas, 202,004 ha official, July) cover all land cover nationwide and are not comparable.
 
+## App
+
+Single `index.html`, MapLibre GL JS, no build step, served by GitHub Pages.
+
+- Map views: VIIRS optical, NISAR HV before, HV after, HV change. Burn scars coloured by class.
+- VIIRS fires as a heatmap (weighted by FRP), a 2 km count grid, or points coloured by whether they touch a scar.
+- Spread arrows: one area-weighted arrow per ~11 km cell when zoomed out, one per scar when zoomed in.
+- Timeline with a daily slider; playback steps by NISAR pass, week or day.
+- Sidebar: totals per class, validation lift, growth per pass, spread-direction rose, per-regency table, scar detail with
+  HV/HH time series and an audio rendering of HV per pass.
+- Optional voice summary of the area, the selected scar and the end of the timeline (Web Speech API).
+
 ## Data
 
 | Dataset | Source | Use |
@@ -46,6 +60,7 @@ National figures (2.88 Mha Nusantara Atlas, 202,004 ha official, July) cover all
 | VIIRS 375 m active fire, confidence n/h | NASA FIRMS: `VIIRS_SNPP_SP`, falling back to `VIIRS_SNPP_NRT` / `VIIRS_NOAA20_NRT` | labels, ignition point, FRP |
 | MERRA-2 aerosol, `TOTEXTTAU` | NASA GES DISC, `M2TMNXAER` (monthly) | smoke load per scar |
 | VIIRS NOAA-20 corrected reflectance | NASA GIBS / Worldview | optical context in the app |
+| Base map | OpenStreetMap | app background |
 | Peat Hydrological Units (KHG) | Ministry of Environment and Forestry, Indonesia | detection domain |
 | Regency boundaries (ADM2) | geoBoundaries gbOpen | per-regency split |
 
@@ -57,7 +72,7 @@ NISAR provisional products are not rigorously validated. Hotspots: 1 May – 14 
    linear power, mosaic frames of the same pass. Tracks are ranked by AOI coverage from CMR footprints; only one track and
    direction is used per AOI.
 2. **Co-register.** Every date is resampled onto the pre-fire grid.
-3. **Speckle.** NaN-aware 3×3 mean in linear power, then dB.
+3. **Speckle.** NaN-aware 5×5 mean in linear power, then dB.
 4. **Change tensor.** −ΔHV, ΔHH, −Δ(HV−HH). Multi-temporal: per pixel, the deepest HV drop across all passes after the pre date,
    so scars that regrow or get wet before the last pass are kept.
 5. **Segmentation.** SLIC superpixels (~10 ha, compactness 0.1) on the full grid, clipped to KHG.
@@ -92,7 +107,7 @@ index.html                 app (MapLibre GL JS, no build step)
 keluaran/aoi.json          AOI index, the only file the app reads first
 keluaran/<aoi>/            terbakar.geojson, arah_rambatan.geojson, hotspot.geojson, gambut.geojson,
                            statistik.json, deret_waktu.json, meta.json, perubahan.png, hv_pra.png, hv_pasca.png
-pipeline/jejak_bara.py     processing (single module)
+pipeline/jejak_bara.py     processing (single module; working name before the project became Tilas)
 pipeline/jejak_bara_colab.ipynb   end-to-end Colab notebook
 pipeline/uji_sintetis.py   synthetic scenario tests (fire, smoke-hidden, flood, excavator box, regrowth, harvest, rice harvest)
 pipeline/uji_subset.py     GCOV HDF5 subset path test
@@ -114,7 +129,7 @@ Needs an Earthdata login (NISAR EULA accepted in ASF Vertex, GES DISC enabled) a
 
 ## Use of AI
 
-Code for the pipeline, tests, notebook and app was written with Claude (Anthropic). The team chose the problem, AOIs and data,
+Code for the pipeline, tests, notebook and app, and drafts of this README, were written with Claude (Anthropic). The team chose the problem, AOIs and data,
 ran all processing, and reviewed the results. Several method changes came from checking real outputs: multi-temporal
 detection, the shape-size rule, and the fire-context rule for the hidden class.
 

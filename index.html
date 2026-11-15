@@ -315,7 +315,7 @@ function isiArahRingkas(ids) {
     const m = Math.hypot(g.sx, g.sy);
     if (g.w < 100 || m / g.w < 0.35) continue;   // too little area, or directions cancel out
     const ux = g.sx / m, uy = g.sy / m, cx = g.cx / g.w, cy = g.cy / g.w, k = Math.cos(cy * Math.PI / 180);
-    const len = Math.min(0.065, 0.015 + Math.sqrt(g.w) / 1500);
+    const len = Math.min(0.05, 0.012 + Math.sqrt(g.w) / 1900);
     const p0 = [cx - ux * len / 2 / k, cy - uy * len / 2], p1 = [cx + ux * len / 2 / k, cy + uy * len / 2];
     const rot = (Math.atan2(ux, uy) * 180 / Math.PI + 360) % 360;
     garis.push({ type:'Feature', properties:{ ha:g.w }, geometry:{ type:'LineString', coordinates:[p0, p1] } });
@@ -382,18 +382,18 @@ async function loadAoi(slug) {
   arrows.features.forEach(f => { f.properties.kategori = f.properties.kategori || kat[f.properties.id]; });
   map.addSource('arrows', { type:'geojson', data:arrows });
   map.addLayer({ id:'arrows-halo', type:'line', source:'arrows', minzoom:Z0, filter:['==',['get','metode'],'titik_api'],
-    layout:{ 'line-cap':'round' }, paint:{ 'line-color':'#fff', 'line-width':['interpolate',['linear'],['zoom'],10,3.4,14,5], 'line-opacity':masuk(0.85) } });
+    layout:{ 'line-cap':'round' }, paint:{ 'line-color':'#fff', 'line-width':['interpolate',['linear'],['zoom'],10,2.6,14,3.8], 'line-opacity':masuk(0.85) } });
   map.addLayer({ id:'arrows', type:'line', source:'arrows', minzoom:Z0, filter:['==',['get','metode'],'titik_api'],
-    layout:{ 'line-cap':'round' }, paint:{ 'line-color':'#1f2328', 'line-width':['interpolate',['linear'],['zoom'],10,1.5,14,2.6], 'line-opacity':masuk(1) } });
+    layout:{ 'line-cap':'round' }, paint:{ 'line-color':'#1f2328', 'line-width':['interpolate',['linear'],['zoom'],10,1.1,14,2], 'line-opacity':masuk(1) } });
   map.addLayer({ id:'arrows-axis', type:'line', source:'arrows', minzoom:Z0, filter:['!=',['get','metode'],'titik_api'],
-    paint:{ 'line-color':'#1f2328', 'line-width':1.5, 'line-dasharray':[2,2], 'line-opacity':masuk(0.75) } });
+    paint:{ 'line-color':'#1f2328', 'line-width':1.1, 'line-dasharray':[2,2], 'line-opacity':masuk(0.75) } });
   const heads = { type:'FeatureCollection', features: arrows.features
     .filter(f => f.properties.metode === 'titik_api' && f.geometry && f.geometry.coordinates.length > 1)
     .map(f => ({ type:'Feature', properties:{ id:f.properties.id, rot:Number(f.properties.arah_dampak_derajat) || 0 },
                  geometry:{ type:'Point', coordinates:f.geometry.coordinates[f.geometry.coordinates.length - 1] } })) };
   map.addSource('arrow-heads', { type:'geojson', data:heads });
   map.addLayer({ id:'arrow-heads', type:'symbol', source:'arrow-heads', minzoom:Z0,
-    layout:{ 'icon-image':'arrow', 'icon-size':['interpolate',['linear'],['zoom'],10,0.65,14,0.95], 'icon-rotate':['get','rot'], 'icon-rotation-alignment':'map',
+    layout:{ 'icon-image':'arrow', 'icon-size':['interpolate',['linear'],['zoom'],10,0.5,14,0.75], 'icon-rotate':['get','rot'], 'icon-rotation-alignment':'map',
              'icon-allow-overlap':true, 'icon-ignore-placement':true }, paint:{ 'icon-opacity':masuk(1) } });
 
   // zoomed out: one area-weighted arrow per ~11 km cell instead of one per scar
@@ -402,11 +402,11 @@ async function loadAoi(slug) {
   map.addSource('arah-ringkas-kepala', { type:'geojson', data:EMPTY });
   const lebar = (a, b) => ['interpolate',['linear'],['get','ha'],100,a,3000,b];   // thicker = more hectares
   map.addLayer({ id:'arah-halo', type:'line', source:'arah-ringkas', maxzoom:Z1,
-    layout:{ 'line-cap':'round' }, paint:{ 'line-color':'#fff', 'line-width':lebar(3.6,6), 'line-opacity':keluar(0.85) } });
+    layout:{ 'line-cap':'round' }, paint:{ 'line-color':'#fff', 'line-width':lebar(2.6,4.2), 'line-opacity':keluar(0.85) } });
   map.addLayer({ id:'arah', type:'line', source:'arah-ringkas', maxzoom:Z1,
-    layout:{ 'line-cap':'round' }, paint:{ 'line-color':'#1f2328', 'line-width':lebar(1.6,3.4), 'line-opacity':keluar(1) } });
+    layout:{ 'line-cap':'round' }, paint:{ 'line-color':'#1f2328', 'line-width':lebar(1.1,2.3), 'line-opacity':keluar(1) } });
   map.addLayer({ id:'arah-kepala', type:'symbol', source:'arah-ringkas-kepala', maxzoom:Z1,
-    layout:{ 'icon-image':'arrow', 'icon-size':['interpolate',['linear'],['get','ha'],100,0.75,3000,1.1],
+    layout:{ 'icon-image':'arrow', 'icon-size':['interpolate',['linear'],['get','ha'],100,0.55,3000,0.8],
              'icon-rotate':['get','rot'], 'icon-rotation-alignment':'map', 'icon-allow-overlap':true, 'icon-ignore-placement':true },
     paint:{ 'icon-opacity':keluar(1) } });
   for (const id of ['arah','arah-kepala']) {   // click an area arrow to glide in to its scars
