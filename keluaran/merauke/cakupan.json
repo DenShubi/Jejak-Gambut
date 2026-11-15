@@ -1,0 +1,117 @@
+{
+ "gambut_dianalisis_ha": 265452,
+ "jumlah_khg": 15,
+ "khg_total_ha": 712364,
+ "persen_khg_dianalisis": 37.3,
+ "jumlah_kabupaten": 3,
+ "khg": [
+  {
+   "nama": "KHG Sungai Jaman Kawarga - Sungai Samaleki Digul",
+   "dianalisis_ha": 62745,
+   "total_ha": 169928,
+   "persen": 36.9
+  },
+  {
+   "nama": "KHG Sungai Kumbe - Sungai Bian",
+   "dianalisis_ha": 57089,
+   "total_ha": 84971,
+   "persen": 67.2
+  },
+  {
+   "nama": "KHG Sungai Ifuleki Kumbe - Sungai Lekiagi",
+   "dianalisis_ha": 51621,
+   "total_ha": 77461,
+   "persen": 66.6
+  },
+  {
+   "nama": "KHG Sungai Udi Edera - Sungai Samaleki Digul",
+   "dianalisis_ha": 45233,
+   "total_ha": 288748,
+   "persen": 15.7
+  },
+  {
+   "nama": "KHG Sungai Alekikosi Digoel - Sungai Aleki Seme",
+   "dianalisis_ha": 12561,
+   "total_ha": 37428,
+   "persen": 33.6
+  },
+  {
+   "nama": "KHG Sungai Ifileki Bian - Sungai Lekiage Sentuf",
+   "dianalisis_ha": 6831,
+   "total_ha": 10223,
+   "persen": 66.8
+  },
+  {
+   "nama": "KHG Sungai Alekikosi Soap - Sungai Alekikosi Seghab",
+   "dianalisis_ha": 6264,
+   "total_ha": 9336,
+   "persen": 67.1
+  },
+  {
+   "nama": "KHG Sungai Bobburaka - Sungai Aliki Anaw",
+   "dianalisis_ha": 5198,
+   "total_ha": 7630,
+   "persen": 68.1
+  },
+  {
+   "nama": "KHG Sungai Aleki Male - Sungai Ifuleki Bian",
+   "dianalisis_ha": 3944,
+   "total_ha": 5911,
+   "persen": 66.7
+  },
+  {
+   "nama": "KHG Sungai Aleki Eli - Sungai Aleki Mafe",
+   "dianalisis_ha": 2919,
+   "total_ha": 4358,
+   "persen": 67.0
+  },
+  {
+   "nama": "KHG Sungai Bob Buraka - Sungai Aleki Buraka",
+   "dianalisis_ha": 2672,
+   "total_ha": 3919,
+   "persen": 68.2
+  },
+  {
+   "nama": "KHG Sungai Aliki Alo - Sungai Aliki Mauwk Ere",
+   "dianalisis_ha": 2469,
+   "total_ha": 3613,
+   "persen": 68.4
+  },
+  {
+   "nama": "KHG Sungai Ifuleki Kumbe - Sungai Lekiage Ser",
+   "dianalisis_ha": 2414,
+   "total_ha": 3615,
+   "persen": 66.8
+  },
+  {
+   "nama": "KHG Sungai Alekikos Bakian - Sungai Ifuleki Bian",
+   "dianalisis_ha": 2096,
+   "total_ha": 3134,
+   "persen": 66.9
+  },
+  {
+   "nama": "KHG Sungai Ifuleki Bian - Sungai Dalik",
+   "dianalisis_ha": 1396,
+   "total_ha": 2089,
+   "persen": 66.8
+  }
+ ],
+ "kabupaten": [
+  {
+   "nama": "Boven Digoel",
+   "persen_wilayah_dianalisis": 2.2,
+   "gambut_dianalisis_ha": 15236
+  },
+  {
+   "nama": "Mappi",
+   "persen_wilayah_dianalisis": 13.9,
+   "gambut_dianalisis_ha": 105313
+  },
+  {
+   "nama": "Merauke",
+   "persen_wilayah_dianalisis": 45.6,
+   "gambut_dianalisis_ha": 145017
+  }
+ ],
+ "catatan": "Analysed area = KHG peat inside the AOI box (NISAR covers the whole box). KHG totals from the KHG attribute Luas (ha); regency share = land area of the regency inside the box."
+}
