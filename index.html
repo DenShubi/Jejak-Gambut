@@ -124,7 +124,7 @@
     <label class="tog"><input type="checkbox" id="tScars" checked> Burn scars (3 confidence classes)</label>
     <label class="tog"><input type="checkbox" id="tArrows" checked> Spread direction from first ignition</label>
     <label class="tog"><input type="checkbox" id="tHot" checked> VIIRS fires (nominal/high confidence)</label>
-    <label class="tog"><input type="checkbox" id="tPeat" checked> Peat hydrological units (KHG)</label>
+    <label class="tog"><input type="checkbox" id="tPeat" checked> Peat land (KHG peat units)</label>
   </div>
 
   <h2>Timeline</h2>
@@ -194,6 +194,7 @@
   <div class="legend" id="legend">
     <div id="legChange"><b>HV change (dB)</b><div class="grad"></div><div class="ends"><span>−5 loss</span><span>0</span><span>+5 gain</span></div></div>
     <div style="margin-top:6px"><span class="chip" style="background:var(--c1)"></span>confirmed&nbsp; <span class="chip" style="background:var(--c2)"></span>hidden&nbsp; <span class="chip" style="background:var(--c3)"></span>verify</div>
+    <div class="li"><svg width="26" height="10" aria-hidden="true"><rect x="1" y="1" width="24" height="8" fill="#8a6d3b" fill-opacity="0.3" stroke="#6f5427" stroke-dasharray="2 2"/></svg>peat land (KHG)</div>
     <div class="li"><svg width="26" height="10" aria-hidden="true"><line x1="1" y1="5" x2="19" y2="5" stroke="#111" stroke-width="2.5"/><path d="M18 1l7 4-7 4z" fill="#111"/></svg>spread from first ignition; zoomed out, one arrow per 11 km area</div>
     <div class="li"><svg width="26" height="10" aria-hidden="true"><line x1="1" y1="5" x2="25" y2="5" stroke="#111" stroke-width="2" stroke-dasharray="3 3"/></svg>long axis (scar hidden by smoke)</div>
     <div class="fire" id="legFire"></div>
@@ -291,7 +292,7 @@ function isiArahRingkas(ids) {
   sk.setData({ type:'FeatureCollection', features:kepala });
 }
 
-const LAYERS = ['optical','pre','post','change','peat','hot-grid','hot-heat','scars','scars-line','scars-sel','hot','arah-halo','arah','arah-kepala','arrows-halo','arrows','arrows-axis','arrow-heads'];
+const LAYERS = ['optical','pre','post','change','peat-fill','peat','hot-grid','hot-heat','scars','scars-line','scars-sel','hot','arah-halo','arah','arah-kepala','arrows-halo','arrows','arrows-axis','arrow-heads'];
 const SOURCES = ['optical','pre','post','change','peat','scars','arrows','arrow-heads','hot','hot-grid','arah-ringkas','arah-ringkas-kepala'];
 function clearAoi() {
   Object.values(FADE_T).forEach(clearTimeout); OPAC = {}; FADE_T = {};
@@ -336,7 +337,8 @@ async function loadAoi(slug) {
     map.addLayer({ id, type:'raster', source:id, paint:{ 'raster-fade-duration':0 } });
   }
   map.addSource('peat', { type:'geojson', data:peat });
-  map.addLayer({ id:'peat', type:'line', source:'peat', paint:{ 'line-color':'#2e7d32', 'line-width':1.3, 'line-dasharray':[2,2] } });
+  map.addLayer({ id:'peat-fill', type:'fill', source:'peat', paint:{ 'fill-color':'#8a6d3b', 'fill-opacity':0.2 } });
+  map.addLayer({ id:'peat', type:'line', source:'peat', paint:{ 'line-color':'#6f5427', 'line-width':1.3, 'line-dasharray':[2,2] } });
   const colorExpr = ['match',['get','kategori'],'terkonfirmasi',COL.terkonfirmasi,'kandidat_tersembunyi',COL.kandidat_tersembunyi,COL.perlu_verifikasi];
   map.addSource('scars', { type:'geojson', data:scars, promoteId:'id' });
   map.addLayer({ id:'scars', type:'fill', source:'scars', paint:{ 'fill-color':colorExpr, 'fill-opacity':0.38 } });
@@ -605,7 +607,7 @@ function applyToggles() {
   for (const id of ['scars','scars-line','scars-sel']) setVis(id, $('tScars').checked);
   for (const id of ['arrows-halo','arrows','arrows-axis','arrow-heads','arah-halo','arah','arah-kepala']) setVis(id, $('tArrows').checked);
   applyFires();
-  setVis('peat', $('tPeat').checked);
+  setVis('peat', $('tPeat').checked); setVis('peat-fill', $('tPeat').checked);
 }
 function visibleIds(d, last) {
   return scars.features.filter(f => {
