@@ -116,7 +116,6 @@
   <div class="card">
     <div class="big" id="total">–</div>
     <div class="small" id="dates"></div>
-    <div class="small" id="cakupan"></div>
     <div class="bar" id="stack"></div>
     <div class="row"><span><span class="chip" style="background:var(--c1)"></span>Seen by VIIRS (confirmed)</span><b id="k1">–</b></div>
     <div class="row"><span><span class="chip" style="background:var(--c2)"></span>Hidden from VIIRS (candidate)</span><b id="k2">–</b></div>
@@ -140,7 +139,7 @@
     </div>
   </div>
 
-  <h2>By regency (part inside the analysed area)</h2>
+  <h2>By regency (exact geometric split)</h2>
   <table id="kab"></table>
 
   <h2>Selected scar</h2>
@@ -190,7 +189,7 @@ const en = c => c ? (COMPASS[c] || c) : null;
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '—').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
-let cak = null, meta = null, stat = null, series = null, scars = null, view = 'change', days = [], curDay = null, selId = null, playing = null;
+let meta = null, stat = null, series = null, scars = null, view = 'change', days = [], curDay = null, selId = null, playing = null;
 
 const map = new maplibregl.Map({
   container: 'map',
@@ -216,8 +215,8 @@ function arrowImage() {
   return g.getImageData(0, 0, s, s);
 }
 
-const LAYERS = ['optical','pre','post','change','peat','scars','scars-line','scars-sel','hot','luar','luar-line','arrows-halo','arrows','arrows-axis','arrow-heads'];
-const SOURCES = ['optical','pre','post','change','peat','scars','arrows','arrow-heads','hot','luar'];
+const LAYERS = ['optical','pre','post','change','peat','scars','scars-line','scars-sel','arrows-halo','arrows','arrows-axis','arrow-heads','hot'];
+const SOURCES = ['optical','pre','post','change','peat','scars','arrows','arrow-heads','hot'];
 function clearAoi() {
   for (const id of LAYERS) if (map.getLayer(id)) map.removeLayer(id);
   for (const id of SOURCES) if (map.getSource(id)) map.removeSource(id);
@@ -251,8 +250,6 @@ async function loadAoi(slug) {
     getJSON(`${K}/${slug}/statistik.json`), getJSON(`${K}/${slug}/terbakar.geojson`),
     getOpt(`${K}/${slug}/gambut.geojson`, EMPTY), getOpt(`${K}/${slug}/hotspot.geojson`, EMPTY),
     getOpt(`${K}/${slug}/arah_rambatan.geojson`, EMPTY), getOpt(`${K}/${slug}/deret_waktu.json`, { tanggal:[], hv_db:{}, hh_db:{} }) ]);
-  let luar;
-  [cak, luar] = await Promise.all([getOpt(`${K}/${slug}/cakupan.json`, null), getOpt(`${K}/${slug}/luar_analisis.geojson`, EMPTY)]);
   const kat = Object.fromEntries(scars.features.map(f => [f.properties.id, f.properties.kategori]));
 
   const c = meta.png_bounds, png = meta.png || { perubahan:'perubahan.png' };
@@ -290,11 +287,7 @@ async function loadAoi(slug) {
   map.addLayer({ id:'hot', type:'circle', source:'hot',
     paint:{ 'circle-radius':['interpolate',['linear'],['zoom'],7,2.5,12,5],
             'circle-color':['case',['==',['get','dalam_deteksi'],true],'#ffcc00','#ffffff'],
-            'circle-stroke-color':'#111', 'circle-stroke-width':1 } }, 'arrows-halo');
-  // fade everything that is not analysed peat, so the map shows the real analysed area instead of a box
-  map.addSource('luar', { type:'geojson', data:luar });
-  map.addLayer({ id:'luar', type:'fill', source:'luar', paint:{ 'fill-color':'#f3f2ee', 'fill-opacity':0.82 } }, 'arrows-halo');
-  map.addLayer({ id:'luar-line', type:'line', source:'luar', paint:{ 'line-color':'#2e7d32', 'line-width':1.2, 'line-opacity':0.8 } }, 'arrows-halo');
+            'circle-stroke-color':'#111', 'circle-stroke-width':1 } });
 
   days = dayList(meta.tanggal_pra, meta.tanggal_pasca);
   $('slider').max = Math.max(days.length - 1, 0); $('slider').value = days.length - 1;
@@ -319,7 +312,6 @@ async function loadAoi(slug) {
 function renderStats(kat) {
   const s = stat;
   $('total').textContent = ha(s.total_ha);
-  $('cakupan').innerHTML = cak ? `Analysed: <b>${ha(cak.gambut_dianalisis_ha)}</b> of peat in ${fmt(cak.jumlah_khg)} peat units (${fmt(cak.persen_khg_dianalisis)}% of those units' peat), across parts of ${fmt(cak.jumlah_kabupaten)} regencies.` : '';
   $('dates').textContent = `NISAR ${meta.tanggal_pra} → ${meta.tanggal_pasca} · ${fmt(s.jumlah_poligon)} scars · ${fmt((meta.tanggal_deret||[]).length || 2)} passes`;
   const parts = [['terkonfirmasi_ha', COL.terkonfirmasi], ['kandidat_tersembunyi_ha', COL.kandidat_tersembunyi], ['perlu_verifikasi_ha', COL.perlu_verifikasi]];
   const tot = Number(s.total_ha) || 0;
@@ -342,14 +334,9 @@ function renderStats(kat) {
   renderFindings(s);
   const rows = (s.per_kabupaten || []);
   $('kab').innerHTML = `<tr><th>Regency</th><th>Total</th><th>Confirmed</th><th>Under smoke</th></tr>` +
-    (rows.length ? rows.map(r => `<tr><td>${esc(r.nama)}${kabCak(r.nama)}</td><td class="n">${fmt(r.ha)}</td><td class="n">${fmt(r.terkonfirmasi_ha)}</td><td class="n">${fmt(r.tertutup_asap_ha)}</td></tr>`).join('')
+    (rows.length ? rows.map(r => `<tr><td>${esc(r.nama)}</td><td class="n">${fmt(r.ha)}</td><td class="n">${fmt(r.terkonfirmasi_ha)}</td><td class="n">${fmt(r.tertutup_asap_ha)}</td></tr>`).join('')
                  : '<tr><td colspan="4" class="small">No regency data.</td></tr>');
   drawGrowth(kat); drawQuad();
-}
-
-function kabCak(nama) {
-  const k = cak && (cak.kabupaten || []).find(x => x.nama === nama);
-  return k ? `<div class="small">${fmt(k.persen_wilayah_dianalisis)}% of regency analysed</div>` : '';
 }
 
 // ---------- key findings (generated from statistik.json + deret_waktu.json) ----------
@@ -501,7 +488,7 @@ function applyToggles() {
   for (const id of ['scars','scars-line','scars-sel']) if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', vis($('tScars').checked));
   for (const id of ['arrows-halo','arrows','arrows-axis','arrow-heads']) if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', vis($('tArrows').checked));
   if (map.getLayer('hot')) map.setLayoutProperty('hot', 'visibility', vis($('tHot').checked));
-  for (const id of ['peat','luar-line']) if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', vis($('tPeat').checked));
+  if (map.getLayer('peat')) map.setLayoutProperty('peat', 'visibility', vis($('tPeat').checked));
 }
 function visibleIds(d, last) {
   return scars.features.filter(f => {
