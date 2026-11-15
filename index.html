@@ -238,14 +238,11 @@ let meta = null, stat = null, series = null, scars = null, view = 'change', days
 const map = new maplibregl.Map({
   container: 'map',
   style: { version: 8,
-    // quiet light-grey base (CARTO Positron); place names sit on top of the data
-    sources: {
-      base:   { type:'raster', tileSize:256, maxzoom:19, attribution:'© OpenStreetMap contributors © CARTO',
-                tiles:['a','b','c','d'].map(k => `https://${k}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}@2x.png`) },
-      labels: { type:'raster', tileSize:256, maxzoom:19,
-                tiles:['a','b','c','d'].map(k => `https://${k}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}@2x.png`) } },
-    layers: [{ id:'base', type:'raster', source:'base' },
-             { id:'labels', type:'raster', source:'labels', paint:{ 'raster-opacity':0.85 } }] },
+    // OpenStreetMap, greyed and faded so the data stands out (no API key needed)
+    sources: { base: { type:'raster', tiles:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], tileSize:256, maxzoom:19,
+                       attribution:'© OpenStreetMap contributors' } },
+    layers: [{ id:'base', type:'raster', source:'base',
+               paint:{ 'raster-saturation':-1, 'raster-contrast':-0.25, 'raster-brightness-min':0.32, 'raster-opacity':0.9 } }] },
   center: [113, -2], zoom: 4, attributionControl: { compact: true }
 });
 map.addControl(new maplibregl.NavigationControl(), 'top-right');
@@ -433,7 +430,6 @@ async function loadAoi(slug) {
     `<br>Grid ${fmt(meta.ukuran_piksel_m)} m, ${esc(meta.crs_olah)} · contract v${esc(meta.versi_kontrak)}`;
   $('detail').style.display = 'none'; $('hint').style.display = 'block';
   applyView(); applyToggles(); setDay(days.length - 1);
-  if (map.getLayer('labels')) map.moveLayer('labels');   // keep place names above the data
   let beres = false; const selesai = () => { if (!beres) { beres = true; muat(false); } };
   map.once('idle', selesai); setTimeout(selesai, 10000);
 }
