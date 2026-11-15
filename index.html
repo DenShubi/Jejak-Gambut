@@ -29,6 +29,7 @@
   select { width:100%; padding:7px; border:1px solid var(--line); border-radius:8px; background:#fff; font:inherit; }
   .seg { display:grid; grid-template-columns:repeat(4,1fr); gap:4px; background:#eceef0; padding:3px; border-radius:9px; }
   .seg button { padding:7px 2px; border:0; background:transparent; border-radius:7px; cursor:pointer; font:inherit; font-size:12.5px; color:var(--ink); }
+  .seg.s3 { grid-template-columns:repeat(3,1fr); margin-top:6px; }
   .seg button.on { background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.12); font-weight:650; }
   .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px; }
   .big { font-size:32px; font-weight:700; letter-spacing:-.02em; line-height:1.1; font-variant-numeric:tabular-nums; }
@@ -65,6 +66,9 @@
   .mapdate small { display:block; font-size:11px; font-weight:500; opacity:.8; letter-spacing:.03em; }
   .legend { position:absolute; left:10px; bottom:28px; background:rgba(255,255,255,.94); border:1px solid var(--line); border-radius:10px; padding:8px 10px; font-size:12px; box-shadow:0 1px 4px rgba(0,0,0,.08); max-width:260px; }
   .legend .grad { height:9px; border-radius:4px; background:linear-gradient(90deg,#b2182b,#ef8a62,#fddbc7,#f7f7f7,#d1e5f0,#67a9cf,#2166ac); margin:4px 0 2px; }
+  .legend .fire { margin-top:6px; }
+  .legend .ramp { height:9px; border-radius:4px; background:linear-gradient(90deg,#fff3b0,#fdd049,#f59e0b,#c2410c,#7c2d12); margin:3px 0 1px; }
+  .legend .dot { display:inline-block; width:8px; height:8px; border-radius:50%; vertical-align:-1px; margin-right:3px; }
   .legend .ends { display:flex; justify-content:space-between; color:var(--muted); font-size:11px; }
   .maplibregl-popup-content { font:13px/1.4 system-ui,sans-serif; padding:10px 12px; border-radius:10px; }
   .wv { font-size:12px; }
@@ -96,10 +100,15 @@
     <button data-v="post" title="NISAR HV backscatter, post-fire pass">Radar after</button>
     <button data-v="change" class="on" title="HV change post − pre (dB)">Change</button>
   </div>
+  <div class="seg s3" id="fires" role="tablist" aria-label="How VIIRS fires are drawn">
+    <button data-f="grid" title="Fires counted per 2 km cell">Fire grid</button>
+    <button data-f="heat" title="Fire density, weighted by fire power">Heatmap</button>
+    <button data-f="dots" title="Every fire point; yellow = on a mapped scar">Dots</button>
+  </div>
   <div style="margin-top:8px">
     <label class="tog"><input type="checkbox" id="tScars" checked> Burn scars (3 confidence classes)</label>
     <label class="tog"><input type="checkbox" id="tArrows" checked> Spread direction from first ignition</label>
-    <label class="tog"><input type="checkbox" id="tHot" checked> VIIRS hotspots (nominal/high confidence)</label>
+    <label class="tog"><input type="checkbox" id="tHot" checked> VIIRS fires (nominal/high confidence)</label>
     <label class="tog"><input type="checkbox" id="tPeat" checked> Peat hydrological units (KHG)</label>
   </div>
 
@@ -168,6 +177,7 @@
     <div id="legChange"><b>HV change (dB)</b><div class="grad"></div><div class="ends"><span>−5 loss</span><span>0</span><span>+5 gain</span></div></div>
     <div style="margin-top:6px"><span class="chip" style="background:var(--c1)"></span>confirmed&nbsp; <span class="chip" style="background:var(--c2)"></span>hidden&nbsp; <span class="chip" style="background:var(--c3)"></span>verify</div>
     <div style="margin-top:3px">→ spread from ignition&nbsp; ┅ long axis (smoke)</div>
+    <div class="fire" id="legFire"></div>
   </div>
 </div>
 </div>
@@ -189,6 +199,7 @@ const en = c => c ? (COMPASS[c] || c) : null;
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '—').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
+let fireMode = ['grid','heat','dots'].includes(new URLSearchParams(location.search).get('fires')) ? new URLSearchParams(location.search).get('fires') : 'grid', hotIdx = null;
 let meta = null, stat = null, series = null, scars = null, view = 'change', days = [], curDay = null, selId = null, playing = null;
 
 const map = new maplibregl.Map({
@@ -215,8 +226,8 @@ function arrowImage() {
   return g.getImageData(0, 0, s, s);
 }
 
-const LAYERS = ['optical','pre','post','change','peat','scars','scars-line','scars-sel','arrows-halo','arrows','arrows-axis','arrow-heads','hot'];
-const SOURCES = ['optical','pre','post','change','peat','scars','arrows','arrow-heads','hot'];
+const LAYERS = ['optical','pre','post','change','peat','hot-grid','hot-heat','scars','scars-line','scars-sel','hot','arrows-halo','arrows','arrows-axis','arrow-heads'];
+const SOURCES = ['optical','pre','post','change','peat','scars','arrows','arrow-heads','hot','hot-grid'];
 function clearAoi() {
   for (const id of LAYERS) if (map.getLayer(id)) map.removeLayer(id);
   for (const id of SOURCES) if (map.getSource(id)) map.removeSource(id);
@@ -283,11 +294,25 @@ async function loadAoi(slug) {
     layout:{ 'icon-image':'arrow', 'icon-size':['interpolate',['linear'],['zoom'],8,0.5,13,0.9], 'icon-rotate':['get','rot'], 'icon-rotation-alignment':'map',
              'icon-allow-overlap':true, 'icon-ignore-placement':true } });
 
+  // VIIRS fires, three ways: 2 km grid counts, heatmap, or small dots (yellow = on a mapped scar)
   map.addSource('hot', { type:'geojson', data:hot });
   map.addLayer({ id:'hot', type:'circle', source:'hot',
-    paint:{ 'circle-radius':['interpolate',['linear'],['zoom'],7,2.5,12,5],
-            'circle-color':['case',['==',['get','dalam_deteksi'],true],'#ffcc00','#ffffff'],
-            'circle-stroke-color':'#111', 'circle-stroke-width':1 } });
+    paint:{ 'circle-radius':['interpolate',['linear'],['zoom'],7,1.2,10,2,13,4],
+            'circle-color':['case',['==',['get','dalam_deteksi'],true],'#f5b700','#8a9097'],
+            'circle-opacity':['interpolate',['linear'],['zoom'],7,0.55,12,0.85] } }, 'arrows-halo');
+  map.addLayer({ id:'hot-heat', type:'heatmap', source:'hot',
+    paint:{ 'heatmap-weight':['interpolate',['linear'],['coalesce',['get','frp'],1],0,0.25,10,0.6,50,1],
+            'heatmap-intensity':['interpolate',['linear'],['zoom'],7,0.07,12,0.45],
+            'heatmap-radius':['interpolate',['linear'],['zoom'],7,4,12,18],
+            'heatmap-color':['interpolate',['linear'],['heatmap-density'],
+              0,'rgba(255,243,176,0)', 0.1,'rgba(255,243,176,0.35)', 0.35,'rgba(253,208,73,0.55)',
+              0.65,'rgba(245,158,11,0.68)', 0.85,'rgba(194,65,12,0.75)', 1,'rgba(124,45,18,0.8)'],
+            'heatmap-opacity':0.9 } }, 'scars');
+  hotIdx = buatIndeksGrid(hot);
+  map.addSource('hot-grid', { type:'geojson', data:EMPTY });
+  map.addLayer({ id:'hot-grid', type:'fill', source:'hot-grid',
+    paint:{ 'fill-color':['interpolate',['linear'],['get','n'],1,'#fff3b0',10,'#fdd049',40,'#f59e0b',100,'#c2410c',200,'#7c2d12'],
+            'fill-opacity':0.72, 'fill-outline-color':'rgba(255,255,255,0.35)' } }, 'scars');
 
   days = dayList(meta.tanggal_pra, meta.tanggal_pasca);
   $('slider').max = Math.max(days.length - 1, 0); $('slider').value = days.length - 1;
@@ -487,7 +512,7 @@ function applyToggles() {
   const vis = on => on ? 'visible' : 'none';
   for (const id of ['scars','scars-line','scars-sel']) if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', vis($('tScars').checked));
   for (const id of ['arrows-halo','arrows','arrows-axis','arrow-heads']) if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', vis($('tArrows').checked));
-  if (map.getLayer('hot')) map.setLayoutProperty('hot', 'visibility', vis($('tHot').checked));
+  applyFires();
   if (map.getLayer('peat')) map.setLayoutProperty('peat', 'visibility', vis($('tPeat').checked));
 }
 function visibleIds(d, last) {
@@ -509,7 +534,9 @@ function setDay(i) {
   for (const id of ['arrows-halo','arrows']) if (map.getLayer(id)) map.setFilter(id, ['all', ['==',['get','metode'],'titik_api'], f]);
   if (map.getLayer('arrows-axis')) map.setFilter('arrows-axis', ['all', ['!=',['get','metode'],'titik_api'], f]);
   if (map.getLayer('arrow-heads')) map.setFilter('arrow-heads', f);
-  if (map.getLayer('hot')) map.setFilter('hot', ['<=', ['slice', ['to-string', ['get','acq_date']], 0, 10], curDay]);
+  const dayFilter = ['<=', ['slice', ['to-string', ['get','acq_date']], 0, 10], curDay];
+  for (const id of ['hot','hot-heat']) if (map.getLayer(id)) map.setFilter(id, dayFilter);
+  if (fireMode === 'grid') isiGrid();
   if (view === 'optical') setOptical(curDay);
   $('wvlink').href = worldview(curDay);
   const shown = scars.features.filter(x => ids.includes(x.properties.id)).reduce((a, x) => a + (Number(x.properties.luas_ha) || 0), 0);
@@ -517,6 +544,44 @@ function setDay(i) {
   const kat = Object.fromEntries(scars.features.map(x => [x.properties.id, x.properties.kategori]));
   drawGrowth(kat);
 }
+// ---------- fire display modes ----------
+const SEL = 0.02;   // grid cell, degrees (~2.2 km)
+function buatIndeksGrid(fc) {
+  const n = fc.features.length, kunci = new Array(n), tgl = new Array(n);
+  fc.features.forEach((f, i) => {
+    const [x, y] = f.geometry.coordinates;
+    kunci[i] = Math.floor(x / SEL) + ':' + Math.floor(y / SEL);
+    tgl[i] = String(f.properties.acq_date).slice(0, 10);
+  });
+  return { kunci, tgl };
+}
+function isiGrid() {
+  const src = map.getSource('hot-grid'); if (!src || !hotIdx) return;
+  const cnt = new Map(), { kunci, tgl } = hotIdx;
+  for (let i = 0; i < kunci.length; i++) if (tgl[i] <= curDay) cnt.set(kunci[i], (cnt.get(kunci[i]) || 0) + 1);
+  const features = [];
+  for (const [k, n] of cnt) {
+    const [cx, cy] = k.split(':').map(Number), x0 = cx * SEL, y0 = cy * SEL;
+    features.push({ type:'Feature', properties:{ n }, geometry:{ type:'Polygon',
+      coordinates:[[[x0,y0],[x0+SEL,y0],[x0+SEL,y0+SEL],[x0,y0+SEL],[x0,y0]]] } });
+  }
+  src.setData({ type:'FeatureCollection', features });
+}
+const LEG_FIRE = {
+  grid: '<b>VIIRS fires per 2 km cell</b><div class="ramp"></div><div class="ends"><span>1</span><span>10</span><span>40</span><span>100</span><span>200+</span></div>',
+  heat: '<b>VIIRS fire density</b> (weighted by fire power)<div class="ramp"></div><div class="ends"><span>low</span><span>high</span></div>',
+  dots: '<b>VIIRS fires</b><br><span class="dot" style="background:#f5b700"></span>on a mapped scar&nbsp; <span class="dot" style="background:#8a9097"></span>not on a scar'
+};
+function applyFires() {
+  const on = $('tHot').checked;
+  const show = { 'hot-grid': on && fireMode === 'grid', 'hot-heat': on && fireMode === 'heat', 'hot': on && fireMode === 'dots' };
+  for (const [id, v] of Object.entries(show)) if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', v ? 'visible' : 'none');
+  if (fireMode === 'grid') isiGrid();
+  document.querySelectorAll('#fires button').forEach(b => b.classList.toggle('on', b.dataset.f === fireMode));
+  $('legFire').innerHTML = on ? LEG_FIRE[fireMode] : '';
+}
+document.querySelectorAll('#fires button').forEach(b => b.onclick = () => { fireMode = b.dataset.f; applyFires(); });
+
 function stopPlay() { if (playing) { clearTimeout(playing.t); playing = null; $('playT').textContent = '▶'; } }
 const JEDA_MS = 140;   // jeda minimum per hari, setelah peta selesai menggambar
 function tungguPeta(maksMs) {          // selesai saat peta 'idle' (semua titik tergambar), atau setelah maksMs
