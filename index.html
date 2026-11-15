@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Jejak Bara — Peat fire scars through the smoke, with NISAR</title>
+<title>Tilas — NISAR maps the hectares behind Indonesia's peat-fire hotspots</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3E%3Ccircle cx=%278%27 cy=%278%27 r=%277%27 fill=%27%23c0392b%27/%3E%3C/svg%3E">
-<meta name="description" content="NISAR L-band radar maps 2026 Indonesian peat fire scars hidden under smoke, tracks their spread and separates fire from mechanical clearing.">
+<meta name="description" content="Tilas: NISAR L-band radar turns Indonesia's 2026 peat-fire hotspots into mapped hectares, every 12 days, with spread direction and per-regency totals.">
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <style>
@@ -37,6 +37,10 @@
   .chip { display:inline-block; width:11px; height:11px; border-radius:3px; margin-right:7px; vertical-align:-1px; }
   .bar { display:flex; height:12px; border-radius:6px; overflow:hidden; margin:10px 0 6px; background:#eee; }
   .bar span { display:block; height:100%; }
+  .findings { background:#17181a; color:#f2f2f3; border-radius:12px; padding:12px 14px 6px; margin-top:10px; }
+  .findings h3 { margin:0 0 6px; font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:#ffb366; }
+  .findings ul { margin:0; padding-left:16px; } .findings li { margin:0 0 7px; font-size:13px; line-height:1.4; }
+  .findings b { color:#fff; } .findings .src { font-size:11px; color:#a9abb0; margin:2px 0 6px; }
   .kpis { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px; }
   .kpi { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:9px 10px; }
   .kpi .v { font-size:20px; font-weight:700; font-variant-numeric:tabular-nums; }
@@ -76,13 +80,15 @@
 <body>
 <div id="app">
 <aside>
-  <h1>Jejak Bara</h1>
-  <p class="lead">Peat fire scars mapped <i>through the smoke</i> with NISAR L-band radar — Indonesia, 2026 fire season.</p>
+  <h1>Tilas</h1>
+  <div class="small" style="margin:-1px 0 4px">from <i>napak tilas</i>: retracing where the fire went</div>
+  <p class="lead">VIIRS sees fire <i>points</i>. NISAR L-band radar maps the burned peat <i>hectares</i> — every 12 days, through smoke and cloud. Indonesia, 2026 fire season.</p>
   <div id="badges"></div>
   <div id="demowarn" class="warn" style="display:none">⚠ <b>DEMO DATA.</b> These numbers come from synthetic test scenes, not from NISAR. Do not quote them.</div>
 
   <h2>Area</h2>
   <select id="aoi" aria-label="Area of interest"></select>
+  <div class="findings" id="findings" style="display:none"><h3>Key findings</h3><ul id="findList"></ul><div class="src" id="findSrc"></div></div>
 
   <h2>What you see</h2>
   <div class="seg" id="view" role="tablist">
@@ -120,7 +126,7 @@
     <div class="kpi"><div class="v" id="kBlind">–</div><div class="l" id="kBlindL">of fire-scar area had <b>no</b> VIIRS hotspot on it (thermal blindness)</div></div>
     <div class="kpi"><div class="v" id="kComb">–</div><div class="l">fire impact: confirmed + hidden under smoke</div></div>
     <div class="kpi"><div class="v" id="kDir">–</div><div class="l">dominant spread direction (area-weighted)</div></div>
-    <div class="kpi"><div class="v" id="kVal">–</div><div class="l" id="kValL">of peat hotspots fall inside a detected scar</div></div>
+    <div class="kpi"><div class="v" id="kVal">–</div><div class="l" id="kValL">validation lift vs random peat</div></div>
   </div>
 
   <h2>Burn scar growth, every NISAR pass</h2>
@@ -320,14 +326,52 @@ function renderStats(kat) {
     (Number(comb) < 5000 ? ' — <b>small base, read with care</b>' : '');
   $('kDir').textContent = s.arah_rambatan_dampak_dominan
     ? `${en(s.arah_rambatan_dampak_dominan)}${isNum(s.arah_rambatan_dampak_dominan_derajat) ? ' ' + fmt(s.arah_rambatan_dampak_dominan_derajat) + '°' : ''}` : '—';
-  $('kVal').textContent = isNum(s.validasi_hotspot_persen) ? fmt(s.validasi_hotspot_persen) + '%' : 'n/a';
-  $('kValL').innerHTML = `of ${fmt(s.jumlah_hotspot)} peat hotspots fall inside a detected scar` +
-    (isNum(s.ambang_dipakai_db) ? ` · threshold ${fmt(s.ambang_dipakai_db, 2)} dB (${esc(s.sumber_ambang || 'Multi-Otsu')})` : '');
+  const liftOk = isNum(s.validasi_lift) && Number(s.persen_titik_luka_dekat_api) >= 5;
+  $('kVal').textContent = liftOk ? fmt(s.validasi_lift, 1) + '×' : (isNum(s.validasi_hotspot_persen) ? fmt(s.validasi_hotspot_persen) + '%' : 'n/a');
+  $('kValL').innerHTML = (liftOk
+      ? `scar points within 375 m of a VIIRS fire: ${fmt(s.persen_titik_luka_dekat_api)}% vs ${fmt(s.persen_titik_acak_dekat_api)}% for random peat`
+      : `of ${fmt(s.jumlah_hotspot)} peat hotspots fall inside a scar — too few fires for a lift test`) +
+    (isNum(s.ambang_dipakai_db) ? ` · threshold ${fmt(s.ambang_dipakai_db, 2)} dB` : '');
+  renderFindings(s);
   const rows = (s.per_kabupaten || []);
   $('kab').innerHTML = `<tr><th>Regency</th><th>Total</th><th>Confirmed</th><th>Under smoke</th></tr>` +
     (rows.length ? rows.map(r => `<tr><td>${esc(r.nama)}</td><td class="n">${fmt(r.ha)}</td><td class="n">${fmt(r.terkonfirmasi_ha)}</td><td class="n">${fmt(r.tertutup_asap_ha)}</td></tr>`).join('')
                  : '<tr><td colspan="4" class="small">No regency data.</td></tr>');
   drawGrowth(kat); drawQuad();
+}
+
+// ---------- key findings (generated from statistik.json + deret_waktu.json) ----------
+function renderFindings(s) {
+  const L = [], tot = Number(s.total_ha) || 0, terk = Number(s.terkonfirmasi_ha) || 0,
+        hid = Number(s.kandidat_tersembunyi_ha) || 0, ver = Number(s.perlu_verifikasi_ha) || 0, fire = terk + hid;
+  const pct = x => tot ? fmt(100 * x / tot) + '%' : '—';
+  if (!tot) { $('findings').style.display = 'none'; return; }
+  L.push(`<b>${fmt(s.jumlah_hotspot)}</b> VIIRS fire points on peat → <b>${ha(tot)}</b> of canopy loss mapped by NISAR in ${fmt(s.jumlah_poligon)} scars.`);
+  if (fire / tot >= 0.5) {
+    L.push(`<b>${pct(terk)}</b> of the mapped loss coincides with a VIIRS fire; ${pct(hid)} was missed by VIIRS but had fire nearby.`);
+  } else {
+    L.push(`Only <b>${pct(fire)}</b> of the canopy loss has fire evidence. The other <b>${ha(ver)}</b> is flagged for verification — likely plantation harvest or clearing, <i>not</i> counted as fire.`);
+  }
+  const t = (series && series.tanggal) || [], c = s.luas_kumulatif_ha || (series && series.total_kumulatif_ha) || [];
+  if (t.length >= 3 && c.length === t.length) {
+    let k = 1, best = -1;
+    for (let i = 1; i < c.length; i++) { const d = (Number(c[i]) || 0) - (Number(c[i - 1]) || 0); if (d > best) { best = d; k = i; } }
+    L.push(`Area grew pass by pass to <b>${ha(c[c.length - 1])}</b> on ${t[t.length - 1]}; the biggest jump between passes was ${t[k - 1]} → ${t[k]} (<b>+${ha(best)}</b>, ${Math.round((Date.parse(t[k]) - Date.parse(t[k - 1])) / 864e5)} days).`);
+  }
+  if (isNum(s.validasi_lift) && Number(s.persen_titik_luka_dekat_api) >= 5) {
+    L.push(`Validation: scar points are <b>${fmt(s.validasi_lift, 1)}×</b> more likely than random peat to lie within 375 m of a VIIRS fire (${fmt(s.persen_titik_luka_dekat_api)}% vs ${fmt(s.persen_titik_acak_dekat_api)}%). Hotspots never drive detection.`);
+  } else if (isNum(s.persen_titik_luka_dekat_api)) {
+    L.push(`Too few fires here for a meaningful VIIRS check (${fmt(s.persen_titik_luka_dekat_api, 1)}% of scar points near a fire).`);
+  }
+  if (isNum(s.rerata_aod) && Number(s.rerata_aod) < (Number(s.ambang_aod_pekat) || 1) && fire >= 5000) {
+    L.push(`Smoke stayed below dense levels (mean AOD ${fmt(s.rerata_aod, 2)}); VIIRS missed only <b>${fmt(s.rasio_kebutaan_termal_akibat_asap_persen, 1)}%</b> of fire-scar area here.`);
+  }
+  const k0 = (s.per_kabupaten || [])[0];
+  if (k0) L.push(`Largest: <b>${esc(k0.nama)}</b> (${ha(k0.ha)})` + (fire / tot >= 0.5 && s.arah_rambatan_dampak_dominan
+      ? ` · dominant spread <b>${en(s.arah_rambatan_dampak_dominan)}${isNum(s.arah_rambatan_dampak_dominan_derajat) ? ' ' + fmt(s.arah_rambatan_dampak_dominan_derajat) + '°' : ''}</b>.` : '.'));
+  $('findList').innerHTML = L.map(x => `<li>${x}</li>`).join('');
+  $('findSrc').textContent = `NISAR ${meta.tanggal_pra} → ${meta.tanggal_pasca}` + (meta.data_sintetis ? ' · DEMO DATA' : '');
+  $('findings').style.display = 'block';
 }
 
 // ---------- charts ----------
