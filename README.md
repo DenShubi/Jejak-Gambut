@@ -1,3 +1,5 @@
+<img src="logo.svg" alt="" width="48">
+
 # Tilas
 
 *Tilas*, from the Indonesian *napak tilas*: retracing where something went.
@@ -104,6 +106,7 @@ No supervised model: there is no 2026 ground truth, and training on VIIRS would 
 
 ```
 index.html                 app (MapLibre GL JS, no build step)
+logo.svg                   logo and favicon
 keluaran/aoi.json          AOI index, the only file the app reads first
 keluaran/<aoi>/            terbakar.geojson, arah_rambatan.geojson, hotspot.geojson, gambut.geojson,
                            statistik.json, deret_waktu.json, meta.json, perubahan.png, hv_pra.png, hv_pasca.png

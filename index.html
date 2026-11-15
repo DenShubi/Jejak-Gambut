@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tilas</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3E%3Ccircle cx=%278%27 cy=%278%27 r=%277%27 fill=%27%23c0392b%27/%3E%3C/svg%3E">
+<link rel="icon" href="logo.svg" type="image/svg+xml">
 <meta name="description" content="Tilas: NISAR L-band radar turns Indonesia's 2026 peat-fire hotspots into mapped hectares, every 12 days, with spread direction and per-regency totals.">
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
@@ -87,6 +87,8 @@
   dl.how dt { font-weight:600; } dl.how dd { text-align:left; color:var(--muted); }
   .wv { font-size:12px; }
   .head { display:flex; justify-content:space-between; align-items:center; }
+  h1 { display:flex; align-items:center; gap:9px; }
+  h1 .logo { width:26px; height:26px; flex:none; }
   .iconbtn { width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center; border:1px solid #cfd1d4; border-radius:3px;
              background:#fff; color:var(--muted); cursor:pointer; padding:0; transition:background .15s, color .15s, border-color .15s; }
   .iconbtn svg { width:18px; height:18px; fill:currentColor; }
@@ -107,17 +109,22 @@
   @media (prefers-reduced-motion: reduce) { #loading .track span { animation:none; left:30%; } }
   a { color:#1f5fbf; }
   @media (max-width: 820px) {
-    #app { grid-template-columns:1fr; grid-template-rows:56vh auto; height:auto; }
-    #mapwrap { grid-row:1; height:56vh; }
-    aside { grid-row:2; border-right:0; border-top:1px solid var(--line); overflow:visible; }
-    .legend { display:none; }
+    #app { grid-template-columns:1fr; grid-template-rows:auto auto; height:auto; }
+    #mapwrap { grid-row:1; height:auto; }
+    #map { position:relative; height:58vh; }
+    aside { grid-row:2; border-right:0; border-top:1px solid var(--line); overflow:visible; padding:16px 16px 40px; }
+    .legend { position:static; max-width:none; border-width:0 0 1px; border-radius:0; padding:10px 16px; background:#fff; }
+    #loading { bottom:auto; height:58vh; }
+    .mapdate { font-size:16px; padding:5px 9px; } .mapdate small { font-size:10px; }
+    .seg button { font-size:12px; padding:9px 2px; }
+    .rose { grid-template-columns:116px 1fr; } .rose svg { width:116px; height:116px; }
   }
 </style>
 </head>
 <body>
 <div id="app">
 <aside>
-  <div class="head"><h1>Tilas</h1><button class="iconbtn" id="voiceBtn" aria-pressed="false" aria-label="Voice notifications off" title="Voice notifications"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 7.5h3l4-3.5v12l-4-3.5H3z"/><path d="M13 8l4 4M17 8l-4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button></div>
+  <div class="head"><h1><svg class="logo" viewBox="0 0 32 32" aria-hidden="true"> <rect width="32" height="32" rx="5" fill="#17181a"/> <circle cx="21.5" cy="10.5" r="6.6" fill="none" stroke="#f3f1ec" stroke-width="1.3" stroke-opacity=".45"/> <circle cx="6.6" cy="25.9" r="1.5" fill="#f3f1ec" fill-opacity=".35"/> <circle cx="10.4" cy="21.8" r="1.8" fill="#f3f1ec" fill-opacity=".6"/> <circle cx="14.3" cy="17.7" r="2.1" fill="#f3f1ec" fill-opacity=".85"/> <circle cx="21.5" cy="10.5" r="3.6" fill="#e4572e"/> </svg>Tilas</h1><button class="iconbtn" id="voiceBtn" aria-pressed="false" aria-label="Voice notifications off" title="Voice notifications"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 7.5h3l4-3.5v12l-4-3.5H3z"/><path d="M13 8l4 4M17 8l-4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button></div>
   <p class="lead">VIIRS records fires as points. NISAR L-band radar maps the burned peat in hectares, every 12 days, through smoke and cloud. Indonesia, 2026 fire season.</p>
   <div id="badges"></div>
   <div id="demowarn" class="warn" style="display:none"><b>Demo data.</b> These numbers come from synthetic test scenes, not from NISAR. Do not quote them.</div>
@@ -269,6 +276,7 @@ const map = new maplibregl.Map({
   center: [113, -2], zoom: 4, attributionControl: { compact: true }
 });
 map.addControl(new maplibregl.NavigationControl(), 'top-right');
+if (matchMedia('(max-width: 820px)').matches && map.cooperativeGestures) map.cooperativeGestures.enable();   // phones: one finger scrolls the page
 map.addControl(new maplibregl.ScaleControl(), 'bottom-right');
 
 const getJSON = async p => { const r = await fetch(p); if (!r.ok) throw new Error(p + ' ' + r.status); return r.json(); };
@@ -674,7 +682,7 @@ function setDay(i) {
   if (view === 'optical') setOptical(curDay);
   $('wvlink').href = worldview(curDay);
   const shown = scars.features.filter(x => ids.includes(x.properties.id)).reduce((a, x) => a + (Number(x.properties.luas_ha) || 0), 0);
-  $('tinfo').textContent = `${ids.length} of ${scars.features.length} scars visible by ${curDay} (${ha(shown)}).`;
+  $('tinfo').textContent = `${ids.length} of ${scars.features.length} scars visible by ${dmy(curDay)} (${ha(shown)}).`;
   const kat = Object.fromEntries(scars.features.map(x => [x.properties.id, x.properties.kategori]));
   drawGrowth(kat);
 }
