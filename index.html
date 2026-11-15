@@ -242,10 +242,11 @@ const getOpt = async (p, fb) => { try { return await getJSON(p); } catch { retur
 const EMPTY = { type:'FeatureCollection', features:[] };
 
 function arrowImage() {
-  const s = 48, c = document.createElement('canvas'); c.width = c.height = s;
+  // slim arrowhead, tip up, thin white edge so it reads on the heatmap
+  const s = 40, c = document.createElement('canvas'); c.width = c.height = s;
   const g = c.getContext('2d');
-  g.fillStyle = '#111'; g.strokeStyle = '#fff'; g.lineWidth = 4; g.lineJoin = 'round';
-  g.beginPath(); g.moveTo(s/2, 4); g.lineTo(s-8, s-8); g.lineTo(s/2, s-16); g.lineTo(8, s-8); g.closePath();
+  g.fillStyle = '#1f2328'; g.strokeStyle = 'rgba(255,255,255,0.95)'; g.lineWidth = 2.5; g.lineJoin = 'round';
+  g.beginPath(); g.moveTo(s/2, 6); g.lineTo(s/2 + 9, s - 8); g.lineTo(s/2, s - 13); g.lineTo(s/2 - 9, s - 8); g.closePath();
   g.stroke(); g.fill();
   return g.getImageData(0, 0, s, s);
 }
@@ -341,31 +342,31 @@ async function loadAoi(slug) {
   arrows.features.forEach(f => { f.properties.kategori = f.properties.kategori || kat[f.properties.id]; });
   map.addSource('arrows', { type:'geojson', data:arrows });
   map.addLayer({ id:'arrows-halo', type:'line', source:'arrows', minzoom:ZOOM_DETAIL, filter:['==',['get','metode'],'titik_api'],
-    layout:{ 'line-cap':'round' }, paint:{ 'line-color':'#fff', 'line-width':7, 'line-opacity':0.9 } });
+    layout:{ 'line-cap':'round' }, paint:{ 'line-color':'#fff', 'line-width':['interpolate',['linear'],['zoom'],10,3.4,14,5], 'line-opacity':0.85 } });
   map.addLayer({ id:'arrows', type:'line', source:'arrows', minzoom:ZOOM_DETAIL, filter:['==',['get','metode'],'titik_api'],
-    layout:{ 'line-cap':'round' }, paint:{ 'line-color':'#111', 'line-width':3 } });
+    layout:{ 'line-cap':'round' }, paint:{ 'line-color':'#1f2328', 'line-width':['interpolate',['linear'],['zoom'],10,1.5,14,2.6] } });
   map.addLayer({ id:'arrows-axis', type:'line', source:'arrows', minzoom:ZOOM_DETAIL, filter:['!=',['get','metode'],'titik_api'],
-    paint:{ 'line-color':'#111', 'line-width':2, 'line-dasharray':[1.5,1.5], 'line-opacity':0.75 } });
+    paint:{ 'line-color':'#1f2328', 'line-width':1.5, 'line-dasharray':[2,2], 'line-opacity':0.75 } });
   const heads = { type:'FeatureCollection', features: arrows.features
     .filter(f => f.properties.metode === 'titik_api' && f.geometry && f.geometry.coordinates.length > 1)
     .map(f => ({ type:'Feature', properties:{ id:f.properties.id, rot:Number(f.properties.arah_dampak_derajat) || 0 },
                  geometry:{ type:'Point', coordinates:f.geometry.coordinates[f.geometry.coordinates.length - 1] } })) };
   map.addSource('arrow-heads', { type:'geojson', data:heads });
   map.addLayer({ id:'arrow-heads', type:'symbol', source:'arrow-heads', minzoom:ZOOM_DETAIL,
-    layout:{ 'icon-image':'arrow', 'icon-size':['interpolate',['linear'],['zoom'],10,0.5,13,0.9], 'icon-rotate':['get','rot'], 'icon-rotation-alignment':'map',
+    layout:{ 'icon-image':'arrow', 'icon-size':['interpolate',['linear'],['zoom'],10,0.65,14,0.95], 'icon-rotate':['get','rot'], 'icon-rotation-alignment':'map',
              'icon-allow-overlap':true, 'icon-ignore-placement':true } });
 
   // zoomed out: one area-weighted arrow per ~11 km cell instead of one per scar
   siapkanArah(arrows);
   map.addSource('arah-ringkas', { type:'geojson', data:EMPTY });
   map.addSource('arah-ringkas-kepala', { type:'geojson', data:EMPTY });
-  const lebar = (a, b) => ['interpolate',['linear'],['get','ha'],100,a,3000,b];
+  const lebar = (a, b) => ['interpolate',['linear'],['get','ha'],100,a,3000,b];   // thicker = more hectares
   map.addLayer({ id:'arah-halo', type:'line', source:'arah-ringkas', maxzoom:ZOOM_DETAIL,
-    layout:{ 'line-cap':'round' }, paint:{ 'line-color':'#fff', 'line-width':lebar(5,11), 'line-opacity':0.9 } });
+    layout:{ 'line-cap':'round' }, paint:{ 'line-color':'#fff', 'line-width':lebar(3.6,6), 'line-opacity':0.85 } });
   map.addLayer({ id:'arah', type:'line', source:'arah-ringkas', maxzoom:ZOOM_DETAIL,
-    layout:{ 'line-cap':'round' }, paint:{ 'line-color':'#111', 'line-width':lebar(2,6) } });
+    layout:{ 'line-cap':'round' }, paint:{ 'line-color':'#1f2328', 'line-width':lebar(1.6,3.4) } });
   map.addLayer({ id:'arah-kepala', type:'symbol', source:'arah-ringkas-kepala', maxzoom:ZOOM_DETAIL,
-    layout:{ 'icon-image':'arrow', 'icon-size':['interpolate',['linear'],['get','ha'],100,0.45,3000,0.85],
+    layout:{ 'icon-image':'arrow', 'icon-size':['interpolate',['linear'],['get','ha'],100,0.75,3000,1.1],
              'icon-rotate':['get','rot'], 'icon-rotation-alignment':'map', 'icon-allow-overlap':true, 'icon-ignore-placement':true } });
 
   // VIIRS fires, three ways: 2 km grid counts, heatmap, or small dots (yellow = on a mapped scar)
