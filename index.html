@@ -262,6 +262,24 @@ const en = c => c ? (COMPASS[c] || c) : null;
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? 'n/a').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
+let pusat = {}, idsSebelum = null, animGel = 0;
+const GERAK_PELAN = matchMedia('(prefers-reduced-motion: reduce)').matches;
+function gelombang(baru) {
+  const src = map.getSource('gelombang');
+  if (!src || !baru.length || GERAK_PELAN || !$('tScars').checked) return;
+  const pilih = baru.map(id => pusat[id]).filter(Boolean).sort((a, b) => b.ha - a.ha).slice(0, 40);
+  src.setData({ type:'FeatureCollection', features: pilih.map(q => ({ type:'Feature',
+    properties:{ s: Math.min(26, 8 + Math.sqrt(q.ha) / 2) }, geometry:{ type:'Point', coordinates:q.c } })) });
+  const id = ++animGel, t0 = performance.now(), DUR = 1000;
+  const frame = now => {
+    if (id !== animGel || !map.getLayer('gelombang')) return;
+    const t = Math.min(1, (now - t0) / DUR), e = 1 - Math.pow(1 - t, 3);   // ease out
+    map.setPaintProperty('gelombang', 'circle-radius', ['+', 3, ['*', e, ['get','s']]]);
+    map.setPaintProperty('gelombang', 'circle-stroke-opacity', 0.75 * (1 - t));
+    if (t < 1) requestAnimationFrame(frame); else src.setData(EMPTY);
+  };
+  requestAnimationFrame(frame);
+}
 let fireMode = ['grid','heat','dots'].includes(new URLSearchParams(location.search).get('fires')) ? new URLSearchParams(location.search).get('fires') : 'heat', hotIdx = null;
 let meta = null, stat = null, series = null, scars = null, view = 'change', days = [], curDay = null, selId = null, playing = null;
 
@@ -333,8 +351,8 @@ function isiArahRingkas(ids) {
   sk.setData({ type:'FeatureCollection', features:kepala });
 }
 
-const LAYERS = ['optical','pre','post','change','peat-fill','peat','hot-grid','hot-heat','scars','scars-line','scars-sel','hot','arah-halo','arah','arah-kepala','arrows-halo','arrows','arrows-axis','arrow-heads'];
-const SOURCES = ['optical','pre','post','change','peat','scars','arrows','arrow-heads','hot','hot-grid','arah-ringkas','arah-ringkas-kepala'];
+const LAYERS = ['optical','pre','post','change','peat-fill','peat','hot-grid','hot-heat','scars','scars-line','scars-sel','hot','gelombang','arah-halo','arah','arah-kepala','arrows-halo','arrows','arrows-axis','arrow-heads'];
+const SOURCES = ['optical','pre','post','change','peat','scars','arrows','arrow-heads','hot','hot-grid','arah-ringkas','arah-ringkas-kepala','gelombang'];
 function clearAoi() {
   Object.values(FADE_T).forEach(clearTimeout); OPAC = {}; FADE_T = {};
   for (const id of LAYERS) if (map.getLayer(id)) map.removeLayer(id);
@@ -422,6 +440,18 @@ async function loadAoi(slug) {
     map.on('mouseenter', id, () => map.getCanvas().style.cursor = 'pointer');
     map.on('mouseleave', id, () => map.getCanvas().style.cursor = '');
   }
+
+  // timeline pulse: a small ring where a new scar appears while playing
+  pusat = Object.fromEntries(scars.features.map(f => {
+    const g = f.geometry, ring = g.type === 'Polygon' ? g.coordinates[0] : g.coordinates[0][0];
+    const c = ring.reduce((a, q) => [a[0] + q[0], a[1] + q[1]], [0, 0]).map(v => v / ring.length);
+    return [f.properties.id, { c, ha:Number(f.properties.luas_ha) || 0 }];
+  }));
+  idsSebelum = null;
+  map.addSource('gelombang', { type:'geojson', data:EMPTY });
+  map.addLayer({ id:'gelombang', type:'circle', source:'gelombang',
+    paint:{ 'circle-radius':4, 'circle-color':'rgba(0,0,0,0)', 'circle-stroke-color':'#e4572e', 'circle-stroke-width':1.6, 'circle-stroke-opacity':0,
+            'circle-radius-transition':{ duration:0 }, 'circle-stroke-opacity-transition':{ duration:0 } } });
 
   // VIIRS fires, three ways: 2 km grid counts, heatmap, or small dots (yellow = on a mapped scar)
   map.addSource('hot', { type:'geojson', data:hot });
@@ -671,6 +701,8 @@ function setDay(i) {
   const ids = visibleIds(curDay, last);
   isiArahRingkas(ids);
   drawRose(ids);
+  if (playing && idsSebelum) gelombang(ids.filter(id => !idsSebelum.has(id)));
+  idsSebelum = new Set(ids);
   const f = ['in', ['get','id'], ['literal', ids]];
   for (const id of ['scars','scars-line']) if (map.getLayer(id)) map.setFilter(id, f);
   for (const id of ['arrows-halo','arrows']) if (map.getLayer(id)) map.setFilter(id, ['all', ['==',['get','metode'],'titik_api'], f]);
