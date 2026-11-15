@@ -86,6 +86,13 @@
   dl.how { display:grid; grid-template-columns:70px 1fr; gap:6px 10px; font-size:12px; margin:0 0 12px; }
   dl.how dt { font-weight:600; } dl.how dd { text-align:left; color:var(--muted); }
   .wv { font-size:12px; }
+  .rose { display:grid; grid-template-columns:132px 1fr; gap:14px; align-items:center; }
+  .rose svg { width:132px; height:132px; display:block; }
+  .rose svg path { transition:fill-opacity .2s; }
+  .rose dl { margin:0; grid-template-columns:1fr auto; }
+  .rose dt { font-size:12px; } .rose dd { font-weight:600; }
+  .rose .dom { grid-column:1 / -1; font-size:15px; font-weight:650; margin-bottom:4px; text-align:left; color:var(--ink); }
+  #roseNote { margin-top:6px; }
   #loading { position:absolute; inset:0; background:rgba(247,247,248,.72); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;
              font-size:13px; color:var(--muted); opacity:0; pointer-events:none; transition:opacity .45s ease; z-index:5; }
   #loading.on { opacity:1; pointer-events:auto; }
@@ -158,6 +165,13 @@
     <div class="kpi"><div class="v" id="kDir"></div><div class="l">dominant spread direction (area-weighted)</div></div>
     <div class="kpi"><div class="v" id="kVal"></div><div class="l" id="kValL">validation lift vs random peat</div></div>
   </div>
+
+  <h2>Spread direction</h2>
+  <div class="card rose">
+    <svg id="rose" viewBox="-60 -60 120 120" role="img" aria-label="Burned area by spread direction, 8 sectors"></svg>
+    <dl id="roseStats"></dl>
+  </div>
+  <div class="small" id="roseNote"></div>
 
   <h2>Burned area after each NISAR pass</h2>
   <div class="card"><svg id="growth" width="100%" height="160" viewBox="0 0 350 160" role="img" aria-label="Cumulative burned area by NISAR pass"></svg></div>
@@ -637,6 +651,7 @@ function setDay(i) {
   const last = i === days.length - 1;
   const ids = visibleIds(curDay, last);
   isiArahRingkas(ids);
+  drawRose(ids);
   const f = ['in', ['get','id'], ['literal', ids]];
   for (const id of ['scars','scars-line']) if (map.getLayer(id)) map.setFilter(id, f);
   for (const id of ['arrows-halo','arrows']) if (map.getLayer(id)) map.setFilter(id, ['all', ['==',['get','metode'],'titik_api'], f]);
@@ -652,6 +667,43 @@ function setDay(i) {
   const kat = Object.fromEntries(scars.features.map(x => [x.properties.id, x.properties.kategori]));
   drawGrowth(kat);
 }
+// ---------- spread direction rose: burned area per 45° sector, from ignition-based vectors ----------
+const ARAH8 = ['North','Northeast','East','Southeast','South','Southwest','West','Northwest'];
+function drawRose(ids) {
+  const svg = $('rose'); if (!svg || !arahData) return;
+  const on = new Set(ids), bins = ARAH8.map(() => ({ ha:0, n:0, m:[] }));
+  let sx = 0, sy = 0, tot = 0;
+  const reach = Object.fromEntries((map.getSource('arrows')?._data?.features || []).map(f => [f.properties.id, Number(f.properties.jangkauan_rambatan_m) || 0]));
+  for (const r of arahData) {
+    if (!on.has(r.id)) continue;
+    const deg = (Math.atan2(r.ux, r.uy) * 180 / Math.PI + 360) % 360, i = Math.floor(((deg + 22.5) % 360) / 45);
+    bins[i].ha += r.w; bins[i].n++; if (reach[r.id]) bins[i].m.push(reach[r.id]);
+    sx += r.ux * r.w; sy += r.uy * r.w; tot += r.w;
+  }
+  if (!tot) { svg.innerHTML = ''; $('roseStats').innerHTML = '<dd class="dom">No fire-based vectors yet</dd>'; $('roseNote').textContent = ''; return; }
+  const max = Math.max(...bins.map(b => b.ha)), dom = bins.findIndex(b => b.ha === max);
+  const R = 46, pt = (deg, r) => [Math.sin(deg * Math.PI / 180) * r, -Math.cos(deg * Math.PI / 180) * r].map(v => v.toFixed(2)).join(' ');
+  const rings = [1/3, 2/3, 1].map(f => `<circle r="${(R * f).toFixed(1)}" fill="none" stroke="#e2e3e6" stroke-width="0.6"/>`).join('');
+  const axes = [0, 45, 90, 135].map(d => `<line x1="${pt(d, R).split(' ')[0]}" y1="${pt(d, R).split(' ')[1]}" x2="${pt(d + 180, R).split(' ')[0]}" y2="${pt(d + 180, R).split(' ')[1]}" stroke="#eceef0" stroke-width="0.6"/>`).join('');
+  const petals = bins.map((b, i) => {
+    if (!b.ha) return '';
+    const r = Math.max(4, R * Math.sqrt(b.ha / max)), c = i * 45;   // radius ~ sqrt(area): petal area tracks hectares
+    const d = `M0 0 L${pt(c - 19, r)} A${r.toFixed(1)} ${r.toFixed(1)} 0 0 1 ${pt(c + 19, r)} Z`;
+    return `<path d="${d}" fill="#c0392b" fill-opacity="${i === dom ? 0.85 : 0.28}" stroke="#fff" stroke-width="0.8"><title>${ARAH8[i]}: ${fmt(b.ha)} ha from ${fmt(b.n)} scars</title></path>`;
+  }).join('');
+  const lab = (t, d) => { const [x, y] = pt(d, R + 8).split(' ').map(Number); return `<text x="${x}" y="${y + 3}" text-anchor="middle" font-size="8" fill="#5f6368">${t}</text>`; };
+  svg.innerHTML = rings + axes + petals + `<circle r="1.6" fill="#17181a"/>` + lab('N', 0) + lab('E', 90) + lab('S', 180) + lab('W', 270);
+  const mean = (Math.atan2(sx, sy) * 180 / Math.PI + 360) % 360, med = a => { a = [...a].sort((x, y) => x - y); return a.length ? a[a.length >> 1] : null; };
+  const b = bins[dom], allReach = bins.flatMap(x => x.m);
+  $('roseStats').innerHTML =
+    `<dd class="dom">Largest sector: ${ARAH8[dom]}</dd>` +
+    `<dt>Area</dt><dd>${ha(b.ha)} (${fmt(100 * b.ha / tot)}%)</dd>` +
+    `<dt>Average drift</dt><dd>${ARAH8[Math.floor(((mean + 22.5) % 360) / 45)]} ${fmt(mean)}°</dd>` +
+    `<dt>Scars</dt><dd>${fmt(bins.reduce((a, x) => a + x.n, 0))}</dd>` +
+    `<dt>Median reach</dt><dd>${isNum(med(allReach)) ? fmt(med(allReach) / 1000, 2) + ' km' : 'n/a'}</dd>`;
+  $('roseNote').textContent = 'Petal size is the burned area that spread that way, from the first VIIRS fire to the scar centre. Average drift is the area-weighted mean direction. Smoke-hidden scars have no direction and are left out.';
+}
+
 // ---------- fire display modes ----------
 const SEL = 0.02;   // grid cell, degrees (~2.2 km)
 function buatIndeksGrid(fc) {
