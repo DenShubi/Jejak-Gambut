@@ -252,7 +252,10 @@ function arrowImage() {
 }
 
 // ---------- spread arrows: per scar when zoomed in, summarised per area when zoomed out ----------
-const ZOOM_DETAIL = 10;   // per-scar arrows from this zoom level
+const ZOOM_DETAIL = 10;   // per-scar arrows take over around this zoom level
+const Z0 = ZOOM_DETAIL - 0.6, Z1 = ZOOM_DETAIL + 0.4;   // cross-fade window
+const masuk = v => ['interpolate',['linear'],['zoom'],Z0,0,Z1,v];    // fades in as you zoom in
+const keluar = v => ['interpolate',['linear'],['zoom'],Z0,v,Z1,0];   // fades out as you zoom in
 const SEL_ARAH = 0.1;     // summary cell in degrees (~11 km)
 let arahData = [];
 function siapkanArah(arrows) {
@@ -291,6 +294,7 @@ function isiArahRingkas(ids) {
 const LAYERS = ['optical','pre','post','change','peat','hot-grid','hot-heat','scars','scars-line','scars-sel','hot','arah-halo','arah','arah-kepala','arrows-halo','arrows','arrows-axis','arrow-heads'];
 const SOURCES = ['optical','pre','post','change','peat','scars','arrows','arrow-heads','hot','hot-grid','arah-ringkas','arah-ringkas-kepala'];
 function clearAoi() {
+  Object.values(FADE_T).forEach(clearTimeout); OPAC = {}; FADE_T = {};
   for (const id of LAYERS) if (map.getLayer(id)) map.removeLayer(id);
   for (const id of SOURCES) if (map.getSource(id)) map.removeSource(id);
 }
@@ -341,33 +345,39 @@ async function loadAoi(slug) {
 
   arrows.features.forEach(f => { f.properties.kategori = f.properties.kategori || kat[f.properties.id]; });
   map.addSource('arrows', { type:'geojson', data:arrows });
-  map.addLayer({ id:'arrows-halo', type:'line', source:'arrows', minzoom:ZOOM_DETAIL, filter:['==',['get','metode'],'titik_api'],
-    layout:{ 'line-cap':'round' }, paint:{ 'line-color':'#fff', 'line-width':['interpolate',['linear'],['zoom'],10,3.4,14,5], 'line-opacity':0.85 } });
-  map.addLayer({ id:'arrows', type:'line', source:'arrows', minzoom:ZOOM_DETAIL, filter:['==',['get','metode'],'titik_api'],
-    layout:{ 'line-cap':'round' }, paint:{ 'line-color':'#1f2328', 'line-width':['interpolate',['linear'],['zoom'],10,1.5,14,2.6] } });
-  map.addLayer({ id:'arrows-axis', type:'line', source:'arrows', minzoom:ZOOM_DETAIL, filter:['!=',['get','metode'],'titik_api'],
-    paint:{ 'line-color':'#1f2328', 'line-width':1.5, 'line-dasharray':[2,2], 'line-opacity':0.75 } });
+  map.addLayer({ id:'arrows-halo', type:'line', source:'arrows', minzoom:Z0, filter:['==',['get','metode'],'titik_api'],
+    layout:{ 'line-cap':'round' }, paint:{ 'line-color':'#fff', 'line-width':['interpolate',['linear'],['zoom'],10,3.4,14,5], 'line-opacity':masuk(0.85) } });
+  map.addLayer({ id:'arrows', type:'line', source:'arrows', minzoom:Z0, filter:['==',['get','metode'],'titik_api'],
+    layout:{ 'line-cap':'round' }, paint:{ 'line-color':'#1f2328', 'line-width':['interpolate',['linear'],['zoom'],10,1.5,14,2.6], 'line-opacity':masuk(1) } });
+  map.addLayer({ id:'arrows-axis', type:'line', source:'arrows', minzoom:Z0, filter:['!=',['get','metode'],'titik_api'],
+    paint:{ 'line-color':'#1f2328', 'line-width':1.5, 'line-dasharray':[2,2], 'line-opacity':masuk(0.75) } });
   const heads = { type:'FeatureCollection', features: arrows.features
     .filter(f => f.properties.metode === 'titik_api' && f.geometry && f.geometry.coordinates.length > 1)
     .map(f => ({ type:'Feature', properties:{ id:f.properties.id, rot:Number(f.properties.arah_dampak_derajat) || 0 },
                  geometry:{ type:'Point', coordinates:f.geometry.coordinates[f.geometry.coordinates.length - 1] } })) };
   map.addSource('arrow-heads', { type:'geojson', data:heads });
-  map.addLayer({ id:'arrow-heads', type:'symbol', source:'arrow-heads', minzoom:ZOOM_DETAIL,
+  map.addLayer({ id:'arrow-heads', type:'symbol', source:'arrow-heads', minzoom:Z0,
     layout:{ 'icon-image':'arrow', 'icon-size':['interpolate',['linear'],['zoom'],10,0.65,14,0.95], 'icon-rotate':['get','rot'], 'icon-rotation-alignment':'map',
-             'icon-allow-overlap':true, 'icon-ignore-placement':true } });
+             'icon-allow-overlap':true, 'icon-ignore-placement':true }, paint:{ 'icon-opacity':masuk(1) } });
 
   // zoomed out: one area-weighted arrow per ~11 km cell instead of one per scar
   siapkanArah(arrows);
   map.addSource('arah-ringkas', { type:'geojson', data:EMPTY });
   map.addSource('arah-ringkas-kepala', { type:'geojson', data:EMPTY });
   const lebar = (a, b) => ['interpolate',['linear'],['get','ha'],100,a,3000,b];   // thicker = more hectares
-  map.addLayer({ id:'arah-halo', type:'line', source:'arah-ringkas', maxzoom:ZOOM_DETAIL,
-    layout:{ 'line-cap':'round' }, paint:{ 'line-color':'#fff', 'line-width':lebar(3.6,6), 'line-opacity':0.85 } });
-  map.addLayer({ id:'arah', type:'line', source:'arah-ringkas', maxzoom:ZOOM_DETAIL,
-    layout:{ 'line-cap':'round' }, paint:{ 'line-color':'#1f2328', 'line-width':lebar(1.6,3.4) } });
-  map.addLayer({ id:'arah-kepala', type:'symbol', source:'arah-ringkas-kepala', maxzoom:ZOOM_DETAIL,
+  map.addLayer({ id:'arah-halo', type:'line', source:'arah-ringkas', maxzoom:Z1,
+    layout:{ 'line-cap':'round' }, paint:{ 'line-color':'#fff', 'line-width':lebar(3.6,6), 'line-opacity':keluar(0.85) } });
+  map.addLayer({ id:'arah', type:'line', source:'arah-ringkas', maxzoom:Z1,
+    layout:{ 'line-cap':'round' }, paint:{ 'line-color':'#1f2328', 'line-width':lebar(1.6,3.4), 'line-opacity':keluar(1) } });
+  map.addLayer({ id:'arah-kepala', type:'symbol', source:'arah-ringkas-kepala', maxzoom:Z1,
     layout:{ 'icon-image':'arrow', 'icon-size':['interpolate',['linear'],['get','ha'],100,0.75,3000,1.1],
-             'icon-rotate':['get','rot'], 'icon-rotation-alignment':'map', 'icon-allow-overlap':true, 'icon-ignore-placement':true } });
+             'icon-rotate':['get','rot'], 'icon-rotation-alignment':'map', 'icon-allow-overlap':true, 'icon-ignore-placement':true },
+    paint:{ 'icon-opacity':keluar(1) } });
+  for (const id of ['arah','arah-kepala']) {   // click an area arrow to glide in to its scars
+    map.on('click', id, e => map.easeTo({ center:e.lngLat, zoom:ZOOM_DETAIL + 1, duration:1100 }));
+    map.on('mouseenter', id, () => map.getCanvas().style.cursor = 'pointer');
+    map.on('mouseleave', id, () => map.getCanvas().style.cursor = '');
+  }
 
   // VIIRS fires, three ways: 2 km grid counts, heatmap, or small dots (yellow = on a mapped scar)
   map.addSource('hot', { type:'geojson', data:hot });
@@ -393,7 +403,7 @@ async function loadAoi(slug) {
   $('slider').max = Math.max(days.length - 1, 0); $('slider').value = days.length - 1;
   curDay = days[days.length - 1];
 
-  const b = meta.aoi_bbox; map.fitBounds([[b[0], b[1]], [b[2], b[3]]], { padding:30, duration:600 });
+  const b = meta.aoi_bbox; map.fitBounds([[b[0], b[1]], [b[2], b[3]]], { padding:30, duration:1400, essential:true });
   const mode = meta.mode || (meta.data_sintetis ? 'sintetis' : 'nisar');
   const demo = meta.data_sintetis || mode === 'sintetis';
   $('badges').innerHTML = demo ? '<span class="badge b-demo">Demo data</span>'
@@ -556,19 +566,46 @@ function selectScar(p, lngLat) {
 }
 
 // ---------- view / toggles / timeline ----------
+// ---------- soft fade when layers are switched on or off ----------
+const OPAC_PROP = { line:'line-opacity', symbol:'icon-opacity', fill:'fill-opacity', circle:'circle-opacity', heatmap:'heatmap-opacity', raster:'raster-opacity' };
+let OPAC = {}, FADE_T = {};
+function setVis(id, on, ms = 380) {
+  const L = map.getLayer(id); if (!L) return;
+  const prop = OPAC_PROP[L.type], shown = map.getLayoutProperty(id, 'visibility') !== 'none';
+  if (!prop) return map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none');
+  if (!(id in OPAC)) OPAC[id] = map.getPaintProperty(id, prop) ?? 1;
+  clearTimeout(FADE_T[id]);
+  if (on) {
+    if (!shown) {
+      map.setPaintProperty(id, prop + '-transition', { duration:0, delay:0 });
+      map.setPaintProperty(id, prop, 0);
+      map.setLayoutProperty(id, 'visibility', 'visible');
+    }
+    requestAnimationFrame(() => {
+      if (!map.getLayer(id)) return;
+      map.setPaintProperty(id, prop + '-transition', { duration:ms, delay:0 });
+      map.setPaintProperty(id, prop, OPAC[id]);
+    });
+  } else if (shown) {
+    map.setPaintProperty(id, prop + '-transition', { duration:ms, delay:0 });
+    map.setPaintProperty(id, prop, 0);
+    FADE_T[id] = setTimeout(() => { if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', 'none'); }, ms + 40);
+  }
+}
+
 function applyView() {
   for (const id of ['optical','pre','post','change'])
-    if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', id === view ? 'visible' : 'none');
+    setVis(id, id === view);
   document.querySelectorAll('#view button').forEach(b => b.classList.toggle('on', b.dataset.v === view));
   $('legChange').style.display = view === 'change' ? 'block' : 'none';
   if (view === 'optical' && curDay) setOptical(curDay);
 }
 function applyToggles() {
   const vis = on => on ? 'visible' : 'none';
-  for (const id of ['scars','scars-line','scars-sel']) if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', vis($('tScars').checked));
-  for (const id of ['arrows-halo','arrows','arrows-axis','arrow-heads','arah-halo','arah','arah-kepala']) if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', vis($('tArrows').checked));
+  for (const id of ['scars','scars-line','scars-sel']) setVis(id, $('tScars').checked);
+  for (const id of ['arrows-halo','arrows','arrows-axis','arrow-heads','arah-halo','arah','arah-kepala']) setVis(id, $('tArrows').checked);
   applyFires();
-  if (map.getLayer('peat')) map.setLayoutProperty('peat', 'visibility', vis($('tPeat').checked));
+  setVis('peat', $('tPeat').checked);
 }
 function visibleIds(d, last) {
   return scars.features.filter(f => {
@@ -631,7 +668,7 @@ const LEG_FIRE = {
 function applyFires() {
   const on = $('tHot').checked;
   const show = { 'hot-grid': on && fireMode === 'grid', 'hot-heat': on && fireMode === 'heat', 'hot': on && fireMode === 'dots' };
-  for (const [id, v] of Object.entries(show)) if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', v ? 'visible' : 'none');
+  for (const [id, v] of Object.entries(show)) setVis(id, v);
   if (fireMode === 'grid') isiGrid();
   document.querySelectorAll('#fires button').forEach(b => b.classList.toggle('on', b.dataset.f === fireMode));
   $('legFire').innerHTML = on ? LEG_FIRE[fireMode] : '';
