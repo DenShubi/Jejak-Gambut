@@ -110,11 +110,10 @@
   a { color:#1f5fbf; }
   @media (max-width: 820px) {
     #app { grid-template-columns:1fr; grid-template-rows:auto auto; height:auto; }
-    #mapwrap { grid-row:1; height:auto; }
-    #map { position:relative; height:58vh; }
+    #mapwrap { grid-row:1; height:46vh; position:sticky; top:0; z-index:10; background:#efefed; box-shadow:0 1px 0 var(--line); }
+    #map { position:absolute; inset:0; }
     aside { grid-row:2; border-right:0; border-top:1px solid var(--line); overflow:visible; padding:16px 16px 40px; }
-    .legend { position:static; max-width:none; border-width:0 0 1px; border-radius:0; padding:10px 16px; background:#fff; }
-    #loading { bottom:auto; height:58vh; }
+    .legend { position:static; max-width:none; border-width:0 0 1px; border-radius:0; padding:10px 0 12px; background:transparent; margin-bottom:4px; }
     .mapdate { font-size:16px; padding:5px 9px; } .mapdate small { font-size:10px; }
     .seg button { font-size:12px; padding:9px 2px; }
     .rose { grid-template-columns:116px 1fr; } .rose svg { width:116px; height:116px; }
@@ -295,6 +294,15 @@ const map = new maplibregl.Map({
 });
 map.addControl(new maplibregl.NavigationControl(), 'top-right');
 if (matchMedia('(max-width: 820px)').matches && map.cooperativeGestures) map.cooperativeGestures.enable();   // phones: one finger scrolls the page
+// phones: the map stays pinned at the top while the details scroll under it, so the legend moves into the sidebar
+const HP = matchMedia('(max-width: 820px)');
+function tempatLegenda() {
+  const lg = $('legend');
+  if (HP.matches) $('tScars').closest('div').after(lg);
+  else $('mapwrap').appendChild(lg);
+  map.resize();
+}
+tempatLegenda(); HP.addEventListener('change', tempatLegenda);
 map.addControl(new maplibregl.ScaleControl(), 'bottom-right');
 
 const getJSON = async p => { const r = await fetch(p); if (!r.ok) throw new Error(p + ' ' + r.status); return r.json(); };
