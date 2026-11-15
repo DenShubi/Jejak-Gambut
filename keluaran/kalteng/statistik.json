@@ -89,5 +89,8 @@
    "tertutup_asap_ha": 53.12,
    "perlu_verifikasi_ha": 952.897
   }
- ]
+ ],
+ "persen_titik_luka_dekat_api": 73.025,
+ "persen_titik_acak_dekat_api": 20.7,
+ "validasi_lift": 3.528
 }
