@@ -194,7 +194,7 @@
   <div class="legend" id="legend">
     <div id="legChange"><b>HV change (dB)</b><div class="grad"></div><div class="ends"><span>−5 loss</span><span>0</span><span>+5 gain</span></div></div>
     <div style="margin-top:6px"><span class="chip" style="background:var(--c1)"></span>confirmed&nbsp; <span class="chip" style="background:var(--c2)"></span>hidden&nbsp; <span class="chip" style="background:var(--c3)"></span>verify</div>
-    <div class="li"><svg width="26" height="10" aria-hidden="true"><line x1="1" y1="5" x2="19" y2="5" stroke="#111" stroke-width="2.5"/><path d="M18 1l7 4-7 4z" fill="#111"/></svg>spread from first ignition</div>
+    <div class="li"><svg width="26" height="10" aria-hidden="true"><line x1="1" y1="5" x2="19" y2="5" stroke="#111" stroke-width="2.5"/><path d="M18 1l7 4-7 4z" fill="#111"/></svg>spread from first ignition; zoomed out, one arrow per 11 km area</div>
     <div class="li"><svg width="26" height="10" aria-hidden="true"><line x1="1" y1="5" x2="25" y2="5" stroke="#111" stroke-width="2" stroke-dasharray="3 3"/></svg>long axis (scar hidden by smoke)</div>
     <div class="fire" id="legFire"></div>
   </div>
@@ -250,8 +250,45 @@ function arrowImage() {
   return g.getImageData(0, 0, s, s);
 }
 
-const LAYERS = ['optical','pre','post','change','peat','hot-grid','hot-heat','scars','scars-line','scars-sel','hot','arrows-halo','arrows','arrows-axis','arrow-heads'];
-const SOURCES = ['optical','pre','post','change','peat','scars','arrows','arrow-heads','hot','hot-grid'];
+// ---------- spread arrows: per scar when zoomed in, summarised per area when zoomed out ----------
+const ZOOM_DETAIL = 10;   // per-scar arrows from this zoom level
+const SEL_ARAH = 0.1;     // summary cell in degrees (~11 km)
+let arahData = [];
+function siapkanArah(arrows) {
+  const luas = Object.fromEntries(scars.features.map(f => [f.properties.id, Number(f.properties.luas_ha) || 0]));
+  arahData = arrows.features.filter(f => f.properties.metode === 'titik_api' && f.geometry && f.geometry.coordinates.length > 1).map(f => {
+    const c = f.geometry.coordinates, a = c[0], b = c[c.length - 1], k = Math.cos(b[1] * Math.PI / 180);
+    const dx = (b[0] - a[0]) * k, dy = b[1] - a[1], n = Math.hypot(dx, dy);
+    return { id:f.properties.id, x:b[0], y:b[1], ux:n ? dx / n : 0, uy:n ? dy / n : 0, w:luas[f.properties.id] || 0 };
+  }).filter(r => (r.ux || r.uy) && r.w > 0);
+}
+function isiArahRingkas(ids) {
+  const sl = map.getSource('arah-ringkas'), sk = map.getSource('arah-ringkas-kepala');
+  if (!sl || !sk) return;
+  const on = new Set(ids), sel = new Map();
+  for (const r of arahData) {
+    if (!on.has(r.id)) continue;
+    const key = Math.floor(r.x / SEL_ARAH) + ':' + Math.floor(r.y / SEL_ARAH);
+    const g = sel.get(key) || { sx:0, sy:0, w:0, cx:0, cy:0 };
+    g.sx += r.ux * r.w; g.sy += r.uy * r.w; g.w += r.w; g.cx += r.x * r.w; g.cy += r.y * r.w; sel.set(key, g);
+  }
+  const garis = [], kepala = [];
+  for (const g of sel.values()) {
+    const m = Math.hypot(g.sx, g.sy);
+    if (g.w < 100 || m / g.w < 0.35) continue;   // too little area, or directions cancel out
+    const ux = g.sx / m, uy = g.sy / m, cx = g.cx / g.w, cy = g.cy / g.w, k = Math.cos(cy * Math.PI / 180);
+    const len = Math.min(0.065, 0.015 + Math.sqrt(g.w) / 1500);
+    const p0 = [cx - ux * len / 2 / k, cy - uy * len / 2], p1 = [cx + ux * len / 2 / k, cy + uy * len / 2];
+    const rot = (Math.atan2(ux, uy) * 180 / Math.PI + 360) % 360;
+    garis.push({ type:'Feature', properties:{ ha:g.w }, geometry:{ type:'LineString', coordinates:[p0, p1] } });
+    kepala.push({ type:'Feature', properties:{ ha:g.w, rot }, geometry:{ type:'Point', coordinates:p1 } });
+  }
+  sl.setData({ type:'FeatureCollection', features:garis });
+  sk.setData({ type:'FeatureCollection', features:kepala });
+}
+
+const LAYERS = ['optical','pre','post','change','peat','hot-grid','hot-heat','scars','scars-line','scars-sel','hot','arah-halo','arah','arah-kepala','arrows-halo','arrows','arrows-axis','arrow-heads'];
+const SOURCES = ['optical','pre','post','change','peat','scars','arrows','arrow-heads','hot','hot-grid','arah-ringkas','arah-ringkas-kepala'];
 function clearAoi() {
   for (const id of LAYERS) if (map.getLayer(id)) map.removeLayer(id);
   for (const id of SOURCES) if (map.getSource(id)) map.removeSource(id);
@@ -303,20 +340,33 @@ async function loadAoi(slug) {
 
   arrows.features.forEach(f => { f.properties.kategori = f.properties.kategori || kat[f.properties.id]; });
   map.addSource('arrows', { type:'geojson', data:arrows });
-  map.addLayer({ id:'arrows-halo', type:'line', source:'arrows', filter:['==',['get','metode'],'titik_api'],
+  map.addLayer({ id:'arrows-halo', type:'line', source:'arrows', minzoom:ZOOM_DETAIL, filter:['==',['get','metode'],'titik_api'],
     layout:{ 'line-cap':'round' }, paint:{ 'line-color':'#fff', 'line-width':7, 'line-opacity':0.9 } });
-  map.addLayer({ id:'arrows', type:'line', source:'arrows', filter:['==',['get','metode'],'titik_api'],
+  map.addLayer({ id:'arrows', type:'line', source:'arrows', minzoom:ZOOM_DETAIL, filter:['==',['get','metode'],'titik_api'],
     layout:{ 'line-cap':'round' }, paint:{ 'line-color':'#111', 'line-width':3 } });
-  map.addLayer({ id:'arrows-axis', type:'line', source:'arrows', filter:['!=',['get','metode'],'titik_api'],
+  map.addLayer({ id:'arrows-axis', type:'line', source:'arrows', minzoom:ZOOM_DETAIL, filter:['!=',['get','metode'],'titik_api'],
     paint:{ 'line-color':'#111', 'line-width':2, 'line-dasharray':[1.5,1.5], 'line-opacity':0.75 } });
   const heads = { type:'FeatureCollection', features: arrows.features
     .filter(f => f.properties.metode === 'titik_api' && f.geometry && f.geometry.coordinates.length > 1)
     .map(f => ({ type:'Feature', properties:{ id:f.properties.id, rot:Number(f.properties.arah_dampak_derajat) || 0 },
                  geometry:{ type:'Point', coordinates:f.geometry.coordinates[f.geometry.coordinates.length - 1] } })) };
   map.addSource('arrow-heads', { type:'geojson', data:heads });
-  map.addLayer({ id:'arrow-heads', type:'symbol', source:'arrow-heads',
-    layout:{ 'icon-image':'arrow', 'icon-size':['interpolate',['linear'],['zoom'],8,0.5,13,0.9], 'icon-rotate':['get','rot'], 'icon-rotation-alignment':'map',
+  map.addLayer({ id:'arrow-heads', type:'symbol', source:'arrow-heads', minzoom:ZOOM_DETAIL,
+    layout:{ 'icon-image':'arrow', 'icon-size':['interpolate',['linear'],['zoom'],10,0.5,13,0.9], 'icon-rotate':['get','rot'], 'icon-rotation-alignment':'map',
              'icon-allow-overlap':true, 'icon-ignore-placement':true } });
+
+  // zoomed out: one area-weighted arrow per ~11 km cell instead of one per scar
+  siapkanArah(arrows);
+  map.addSource('arah-ringkas', { type:'geojson', data:EMPTY });
+  map.addSource('arah-ringkas-kepala', { type:'geojson', data:EMPTY });
+  const lebar = (a, b) => ['interpolate',['linear'],['get','ha'],100,a,3000,b];
+  map.addLayer({ id:'arah-halo', type:'line', source:'arah-ringkas', maxzoom:ZOOM_DETAIL,
+    layout:{ 'line-cap':'round' }, paint:{ 'line-color':'#fff', 'line-width':lebar(5,11), 'line-opacity':0.9 } });
+  map.addLayer({ id:'arah', type:'line', source:'arah-ringkas', maxzoom:ZOOM_DETAIL,
+    layout:{ 'line-cap':'round' }, paint:{ 'line-color':'#111', 'line-width':lebar(2,6) } });
+  map.addLayer({ id:'arah-kepala', type:'symbol', source:'arah-ringkas-kepala', maxzoom:ZOOM_DETAIL,
+    layout:{ 'icon-image':'arrow', 'icon-size':['interpolate',['linear'],['get','ha'],100,0.45,3000,0.85],
+             'icon-rotate':['get','rot'], 'icon-rotation-alignment':'map', 'icon-allow-overlap':true, 'icon-ignore-placement':true } });
 
   // VIIRS fires, three ways: 2 km grid counts, heatmap, or small dots (yellow = on a mapped scar)
   map.addSource('hot', { type:'geojson', data:hot });
@@ -515,7 +565,7 @@ function applyView() {
 function applyToggles() {
   const vis = on => on ? 'visible' : 'none';
   for (const id of ['scars','scars-line','scars-sel']) if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', vis($('tScars').checked));
-  for (const id of ['arrows-halo','arrows','arrows-axis','arrow-heads']) if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', vis($('tArrows').checked));
+  for (const id of ['arrows-halo','arrows','arrows-axis','arrow-heads','arah-halo','arah','arah-kepala']) if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', vis($('tArrows').checked));
   applyFires();
   if (map.getLayer('peat')) map.setLayoutProperty('peat', 'visibility', vis($('tPeat').checked));
 }
@@ -533,6 +583,7 @@ function setDay(i) {
   $('mapdate').innerHTML = `${dmy(curDay)}<small>Day ${i + 1} of ${days.length}</small>`;
   const last = i === days.length - 1;
   const ids = visibleIds(curDay, last);
+  isiArahRingkas(ids);
   const f = ['in', ['get','id'], ['literal', ids]];
   for (const id of ['scars','scars-line']) if (map.getLayer(id)) map.setFilter(id, f);
   for (const id of ['arrows-halo','arrows']) if (map.getLayer(id)) map.setFilter(id, ['all', ['==',['get','metode'],'titik_api'], f]);
