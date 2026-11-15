@@ -238,11 +238,11 @@ let meta = null, stat = null, series = null, scars = null, view = 'change', days
 const map = new maplibregl.Map({
   container: 'map',
   style: { version: 8,
-    // OpenStreetMap, greyed and faded so the data stands out (no API key needed)
+    // OpenStreetMap, colours partly toned down (no API key needed)
     sources: { base: { type:'raster', tiles:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], tileSize:256, maxzoom:19,
                        attribution:'© OpenStreetMap contributors' } },
     layers: [{ id:'base', type:'raster', source:'base',
-               paint:{ 'raster-saturation':-1, 'raster-contrast':-0.25, 'raster-brightness-min':0.32, 'raster-opacity':0.9 } }] },
+               paint:{ 'raster-saturation':-0.6, 'raster-opacity':0.9 } }] },
   center: [113, -2], zoom: 4, attributionControl: { compact: true }
 });
 map.addControl(new maplibregl.NavigationControl(), 'top-right');
