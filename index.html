@@ -98,7 +98,6 @@
   .rose dl { margin:0; grid-template-columns:1fr auto; }
   .rose dt { font-size:12px; } .rose dd { font-weight:600; }
   .rose .dom { grid-column:1 / -1; font-size:15px; font-weight:650; margin-bottom:4px; text-align:left; color:var(--ink); }
-  #roseNote { margin-top:6px; }
   #loading { position:absolute; inset:0; background:rgba(247,247,248,.72); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;
              font-size:13px; color:var(--muted); opacity:0; pointer-events:none; transition:opacity .45s ease; z-index:5; }
   #loading.on { opacity:1; pointer-events:auto; }
@@ -166,10 +165,10 @@
     <div class="row"><span><span class="chip" style="background:var(--c3)"></span>Canopy loss, no fire evidence (verify)</span><b id="k3"></b></div>
   </div>
   <div class="kpis">
-    <div class="kpi"><div class="v" id="kBlind"></div><div class="l" id="kBlindL">of fire-scar area had <b>no</b> VIIRS hotspot on it (thermal blindness)</div></div>
-    <div class="kpi"><div class="v" id="kComb"></div><div class="l">fire impact: confirmed + hidden under smoke</div></div>
-    <div class="kpi"><div class="v" id="kDir"></div><div class="l">dominant spread direction (area-weighted)</div></div>
-    <div class="kpi"><div class="v" id="kVal"></div><div class="l" id="kValL">validation lift vs random peat</div></div>
+    <div class="kpi"><div class="v" id="kBlind"></div><div class="l" id="kBlindL">of burned area had no VIIRS fire on it</div></div>
+    <div class="kpi"><div class="v" id="kComb"></div><div class="l">burned by fire, confirmed or hidden</div></div>
+    <div class="kpi"><div class="v" id="kDir"></div><div class="l">average spread direction</div></div>
+    <div class="kpi"><div class="v" id="kVal"></div><div class="l" id="kValL">more likely near a fire than random peat</div></div>
   </div>
 
   <h2>Spread direction</h2>
@@ -177,7 +176,6 @@
     <svg id="rose" viewBox="-60 -60 120 120" role="img" aria-label="Burned area by spread direction, 8 sectors"></svg>
     <dl id="roseStats"></dl>
   </div>
-  <div class="small" id="roseNote"></div>
 
   <h2>Burned area after each NISAR pass</h2>
   <div class="card"><svg id="growth" width="100%" height="160" viewBox="0 0 350 160" role="img" aria-label="Cumulative burned area by NISAR pass"></svg></div>
@@ -192,23 +190,22 @@
     <dl id="dl"></dl>
     <svg id="chart" width="100%" height="150" viewBox="0 0 350 150" role="img" aria-label="Backscatter and burned area over time"></svg>
     <button class="btn" id="play"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 1l9 5-9 5z"/></svg>Listen to this scar</button>
-    <div class="small">Pitch follows HV backscatter, one note per 12-day NISAR pass.</div>
   </div>
 
   <h2>About the method</h2>
   <details>
     <summary>How it works</summary>
-    <p class="small">NISAR GCOV <b>HV</b> and <b>HH</b> backscatter from every pass are speckle-filtered in linear power and converted to dB. Inside mapped peat units only, the change is segmented into <b>SLIC superpixels</b>, and a <b>Multi-Otsu</b> threshold set by each scene separates canopy loss from stable forest.</p>
+    <p class="small">We compare every NISAR pass of the season. The HV signal comes back from leaves and branches, so it drops when peat forest burns. For each spot we keep the biggest drop, look only inside mapped peat, and group neighbouring pixels into patches. The cut-off between burned and not burned comes from each scene's own numbers, not a value we picked.</p>
     <dl class="how">
-      <dt style="color:var(--c1)">Confirmed</dt><dd>A nominal or high-confidence VIIRS fire within 375 m.</dd>
-      <dt style="color:var(--c2)">Hidden</dt><dd>No fire on the scar, HV fell while HH held, organic shape, and fire evidence nearby: a VIIRS fire within 3 km or dense smoke (AOD 1 or more).</dd>
-      <dt style="color:var(--c3)">Verify</dt><dd>Everything else: box-shaped clearing, unchanged HV/HH ratio (for example flooding), or canopy loss with no fire nearby (likely plantation harvest).</dd>
+      <dt style="color:var(--c1)">Confirmed</dt><dd>VIIRS saw a fire within 375 m.</dd>
+      <dt style="color:var(--c2)">Hidden</dt><dd>No fire on the scar itself, but a fire within 3 km or heavy smoke, and the scar looks like fire damage.</dd>
+      <dt style="color:var(--c3)">Verify</dt><dd>Forest loss with no fire nearby, or a box shape. Often harvest or land clearing.</dd>
     </dl>
-    <p class="small">Spread direction runs from the centre of the earliest fires to the scar centre. For smoke-hidden scars it is the scar's long axis, so it has no head.</p>
+    <p class="small">Arrows point from where the first fires were seen to the middle of the scar. Hidden scars get a dashed line along their length instead.</p>
   </details>
   <details>
     <summary>Limits</summary>
-    <p class="small">Peat only, so totals are not comparable with national burned-area figures. Hidden scars are radar evidence, not proven fires. AOD is MERRA-2 reanalysis at about 50 km. No deep learning: training on VIIRS labels would make the validation circular.</p>
+    <p class="small">We map peat only, so these totals won't match national burned-area figures. Hidden scars are radar evidence, not confirmed fires. The smoke data (MERRA-2) is coarse, about 50 km, and the NISAR data is still a provisional release.</p>
   </details>
   <details>
     <summary>Data sources</summary>
@@ -467,16 +464,14 @@ function renderStats(kat) {
   const comb = isNum(s.dampak_kombinasi_asap_dan_hotspot_ha) ? s.dampak_kombinasi_asap_dan_hotspot_ha
              : (Number(s.terkonfirmasi_ha)||0) + (Number(s.kandidat_tersembunyi_ha)||0);
   $('kComb').textContent = ha(comb);
-  $('kBlindL').innerHTML = `of ${ha(comb)} fire-scar area had <b>no</b> VIIRS hotspot on it (thermal blindness)` +
-    (Number(comb) < 5000 ? '. <b>Small base, read with care.</b>' : '');
+  $('kBlindL').innerHTML = `of burned area had no VIIRS fire on it` + (Number(comb) < 5000 ? '; small area, read with care' : '');
   $('kDir').textContent = s.arah_rambatan_dampak_dominan
     ? `${en(s.arah_rambatan_dampak_dominan)}${isNum(s.arah_rambatan_dampak_dominan_derajat) ? ' ' + fmt(s.arah_rambatan_dampak_dominan_derajat) + '°' : ''}` : 'n/a';
   const liftOk = isNum(s.validasi_lift) && Number(s.persen_titik_luka_dekat_api) >= 5;
   $('kVal').textContent = liftOk ? fmt(s.validasi_lift, 1) + '×' : (isNum(s.validasi_hotspot_persen) ? fmt(s.validasi_hotspot_persen) + '%' : 'n/a');
-  $('kValL').innerHTML = (liftOk
-      ? `scar points within 375 m of a VIIRS fire: ${fmt(s.persen_titik_luka_dekat_api)}% vs ${fmt(s.persen_titik_acak_dekat_api)}% for random peat`
-      : `of ${fmt(s.jumlah_hotspot)} peat hotspots fall inside a scar; too few fires for a lift test`) +
-    (isNum(s.ambang_dipakai_db) ? `; threshold ${fmt(s.ambang_dipakai_db, 2)} dB` : '');
+  $('kValL').innerHTML = liftOk
+      ? `scars sit near a VIIRS fire ${fmt(s.persen_titik_luka_dekat_api)}% of the time, random peat ${fmt(s.persen_titik_acak_dekat_api)}%`
+      : `of peat fires fall on a scar; too few fires to compare`;
   renderFindings(s);
   const rows = (s.per_kabupaten || []);
   $('kab').innerHTML = `<tr><th>Regency</th><th>Total</th><th>Confirmed</th><th>Under smoke</th></tr>` +
@@ -493,7 +488,7 @@ function renderFindings(s) {
   if (!tot) { $('findings').style.display = 'none'; return; }
   L.push(`<b>${fmt(s.jumlah_hotspot)}</b> VIIRS fire points on peat. NISAR mapped <b>${ha(tot)}</b> of canopy loss in ${fmt(s.jumlah_poligon)} scars.`);
   if (fire / tot >= 0.5) {
-    L.push(`<b>${pct(terk)}</b> of the mapped loss coincides with a VIIRS fire; ${pct(hid)} was missed by VIIRS but had fire nearby.`);
+    L.push(`<b>${pct(terk)}</b> of the burned area had a VIIRS fire on it; another ${pct(hid)} had fire nearby.`);
   } else {
     L.push(`Only <b>${pct(fire)}</b> of the canopy loss has fire evidence. The other <b>${ha(ver)}</b> is flagged for verification: likely plantation harvest or clearing, <i>not</i> counted as fire.`);
   }
@@ -504,16 +499,16 @@ function renderFindings(s) {
     L.push(`Area grew pass by pass to <b>${ha(c[c.length - 1])}</b> by ${dmy(t[t.length - 1])}. The biggest jump between passes was ${dm(t[k - 1])} to ${dmy(t[k])} (<b>+${ha(best)}</b>, ${Math.round((Date.parse(t[k]) - Date.parse(t[k - 1])) / 864e5)} days).`);
   }
   if (isNum(s.validasi_lift) && Number(s.persen_titik_luka_dekat_api) >= 5) {
-    L.push(`Validation: scar points are <b>${fmt(s.validasi_lift, 1)}×</b> more likely than random peat to lie within 375 m of a VIIRS fire (${fmt(s.persen_titik_luka_dekat_api)}% vs ${fmt(s.persen_titik_acak_dekat_api)}%). Hotspots never drive detection.`);
+    L.push(`Validation: scar points are <b>${fmt(s.validasi_lift, 1)}×</b> more likely than random peat to lie within 375 m of a VIIRS fire (${fmt(s.persen_titik_luka_dekat_api)}% vs ${fmt(s.persen_titik_acak_dekat_api)}%).`);
   } else if (isNum(s.persen_titik_luka_dekat_api)) {
     L.push(`Too few fires here for a meaningful VIIRS check (${fmt(s.persen_titik_luka_dekat_api, 1)}% of scar points near a fire).`);
   }
   if (isNum(s.rerata_aod) && Number(s.rerata_aod) < (Number(s.ambang_aod_pekat) || 1) && fire >= 5000) {
-    L.push(`Smoke stayed below dense levels (mean AOD ${fmt(s.rerata_aod, 2)}); VIIRS missed only <b>${fmt(s.rasio_kebutaan_termal_akibat_asap_persen, 1)}%</b> of fire-scar area here.`);
+    L.push(`Smoke stayed thin (average AOD ${fmt(s.rerata_aod, 2)}), and VIIRS missed only <b>${fmt(s.rasio_kebutaan_termal_akibat_asap_persen, 1)}%</b> of the burned area.`);
   }
   const k0 = (s.per_kabupaten || [])[0];
-  if (k0) L.push(`Largest: <b>${esc(k0.nama)}</b> (${ha(k0.ha)})` + (fire / tot >= 0.5 && s.arah_rambatan_dampak_dominan
-      ? `. Dominant spread <b>${en(s.arah_rambatan_dampak_dominan)}${isNum(s.arah_rambatan_dampak_dominan_derajat) ? ' ' + fmt(s.arah_rambatan_dampak_dominan_derajat) + '°' : ''}</b>.` : '.'));
+  if (k0) L.push(`Most burned regency: <b>${esc(k0.nama)}</b> (${ha(k0.ha)})` + (fire / tot >= 0.5 && s.arah_rambatan_dampak_dominan
+      ? `. Average spread direction: <b>${String(en(s.arah_rambatan_dampak_dominan)).toLowerCase()}</b>${isNum(s.arah_rambatan_dampak_dominan_derajat) ? ' (' + fmt(s.arah_rambatan_dampak_dominan_derajat) + '°)' : ''}.` : '.'));
   $('findList').innerHTML = L.map(x => `<li>${x}</li>`).join('');
   $('findSrc').textContent = `NISAR, ${span(meta.tanggal_pra, meta.tanggal_pasca)}` + (meta.data_sintetis ? '. Demo data.' : '');
   $('findings').style.display = 'block';
@@ -690,7 +685,7 @@ function drawRose(ids) {
     bins[i].ha += r.w; bins[i].n++; if (reach[r.id]) bins[i].m.push(reach[r.id]);
     sx += r.ux * r.w; sy += r.uy * r.w; tot += r.w;
   }
-  if (!tot) { svg.innerHTML = ''; $('roseStats').innerHTML = '<dd class="dom">No fire-based vectors yet</dd>'; $('roseNote').textContent = ''; return; }
+  if (!tot) { svg.innerHTML = ''; $('roseStats').innerHTML = '<dd class="dom">No fire-based vectors yet</dd>'; return; }
   const max = Math.max(...bins.map(b => b.ha)), dom = bins.findIndex(b => b.ha === max);
   const R = 46, pt = (deg, r) => [Math.sin(deg * Math.PI / 180) * r, -Math.cos(deg * Math.PI / 180) * r].map(v => v.toFixed(2)).join(' ');
   const rings = [1/3, 2/3, 1].map(f => `<circle r="${(R * f).toFixed(1)}" fill="none" stroke="#e2e3e6" stroke-width="0.6"/>`).join('');
@@ -711,7 +706,6 @@ function drawRose(ids) {
     `<dt>Average drift</dt><dd>${ARAH8[Math.floor(((mean + 22.5) % 360) / 45)]} ${fmt(mean)}°</dd>` +
     `<dt>Scars</dt><dd>${fmt(bins.reduce((a, x) => a + x.n, 0))}</dd>` +
     `<dt>Median reach</dt><dd>${isNum(med(allReach)) ? fmt(med(allReach) / 1000, 2) + ' km' : 'n/a'}</dd>`;
-  $('roseNote').textContent = 'Petal size is the burned area that spread that way, from the first VIIRS fire to the scar centre. Average drift is the area-weighted mean direction. Smoke-hidden scars have no direction and are left out.';
 }
 
 // ---------- voice notifications (Web Speech API), off until the button is pressed ----------
